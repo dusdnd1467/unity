@@ -10,6 +10,7 @@ public class EnemyAgent : Agent
     private MazeArea area;
     private Vector3 initialPosition;
     private Quaternion initialRotation;
+    private float previousDistanceToPlayer;
 
     public void InitializeEnemy(MazeArea mazeArea)
     {
@@ -49,6 +50,11 @@ public class EnemyAgent : Agent
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
         }
+
+        if (area != null && area.player != null)
+        {
+            previousDistanceToPlayer = Vector3.Distance(transform.position, area.player.transform.position);
+        }
     }
 
     public override void CollectObservations(VectorSensor sensor)
@@ -80,6 +86,15 @@ public class EnemyAgent : Agent
         if (rb != null)
         {
             rb.MovePosition(rb.position + move * moveSpeed * Time.fixedDeltaTime);
+        }
+
+        // 거리 기반 보상 성형 (Reward Shaping): 플레이어에게 가까워지면 보상(+), 멀어지면 페널티(-)
+        if (area != null && area.player != null)
+        {
+            float currentDistance = Vector3.Distance(transform.position, area.player.transform.position);
+            float distanceDelta = previousDistanceToPlayer - currentDistance;
+            AddReward(distanceDelta * 0.01f);
+            previousDistanceToPlayer = currentDistance;
         }
 
         // Time step penalty
