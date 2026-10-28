@@ -9,6 +9,12 @@ public class KeyItem : MonoBehaviour
         area = mazeArea;
     }
 
+    public void ResetKey(Vector3 newPosition)
+    {
+        transform.position = newPosition;
+        gameObject.SetActive(true);
+    }
+
     private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Player"))
