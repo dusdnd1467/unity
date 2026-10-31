@@ -1,5 +1,8 @@
 using UnityEngine;
 
+/// <summary>
+/// 탈출문 컴포넌트: 열쇠를 소지한 플레이어(PlayerAgent 또는 SimplePlayerAI)가 도달하면 탈출 성공 처리합니다.
+/// </summary>
 public class EscapeDoor : MonoBehaviour
 {
     private MazeArea area;
@@ -11,47 +14,24 @@ public class EscapeDoor : MonoBehaviour
 
     private void Awake()
     {
-        EnsureAreaReference();
+        if (area == null) area = GetComponentInParent<MazeArea>();
     }
 
-    private void EnsureAreaReference()
-    {
-        if (area == null)
-        {
-            area = GetComponentInParent<MazeArea>();
-            if (area == null)
-            {
-                area = Object.FindFirstObjectByType<MazeArea>();
-            }
-        }
-    }
-
-    private void OnTriggerEnter(Collider other)
-    {
-        TryEscape(other.gameObject);
-    }
-
-    private void OnTriggerStay(Collider other)
-    {
-        TryEscape(other.gameObject);
-    }
-
-    private void OnCollisionEnter(Collision collision)
-    {
-        TryEscape(collision.gameObject);
-    }
+    private void OnTriggerEnter(Collider other) => TryEscape(other.gameObject);
+    private void OnTriggerStay(Collider other) => TryEscape(other.gameObject);
+    private void OnCollisionEnter(Collision collision) => TryEscape(collision.gameObject);
 
     private void TryEscape(GameObject target)
     {
-        var player = target.GetComponentInParent<SimplePlayerAI>();
-        if (player != null && player.hasKey)
+        if (area == null) return;
+
+        bool hasKey = (target.GetComponentInParent<PlayerAgent>()?.hasKey ?? false) ||
+                      (target.GetComponentInParent<SimplePlayerAI>()?.hasKey ?? false);
+
+        if (hasKey)
         {
-            EnsureAreaReference();
-            if (area != null)
-            {
-                Debug.Log("[EscapeDoor] 플레이어가 열쇠를 획득하고 문에 도착했습니다! 에피소드를 리셋합니다.");
-                area.OnPlayerEscaped();
-            }
+            Debug.Log("[EscapeDoor] 플레이어가 열쇠를 획득하고 탈출문에 도착했습니다!");
+            area.OnPlayerEscaped();
         }
     }
 }

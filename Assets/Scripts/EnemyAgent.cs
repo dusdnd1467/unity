@@ -1,35 +1,28 @@
 using UnityEngine;
-using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
 
-public class EnemyAgent : Agent
+/// <summary>
+/// 미로 술래잡기 환경의 적 에이전트:
+/// 플레이어를 추적하여 잡는 것을 목표로 학습합니다.
+/// 소리를 감지하고 장애물(상자)을 해제하며 플레이어에게 접근합니다.
+/// </summary>
+public class EnemyAgent : MazeAgentBase
 {
-    public float moveSpeed = 6.0f;
-    private Rigidbody rb;
-    private MazeArea area;
-    private Vector3 initialPosition;
-    private Quaternion initialRotation;
+    [Header("상자 상호작용")]
+    [Tooltip("플레이어가 고정해 둔 상자 근처에 접근 시 자동으로 해제를 시도할지 여부")]
+    public bool autoUnlockPlayerLockedBox = true;
+
     private float previousDistanceToPlayer;
 
     public void InitializeEnemy(MazeArea mazeArea)
     {
-        area = mazeArea;
-        if (rb == null) rb = GetComponent<Rigidbody>();
-        initialPosition = transform.position;
-        initialRotation = transform.rotation;
-    }
-
-    public override void Initialize()
-    {
-        if (rb == null) rb = GetComponent<Rigidbody>();
-        if (area == null) area = GetComponentInParent<MazeArea>();
-        initialPosition = transform.position;
-        initialRotation = transform.rotation;
+        InitializeAgent(mazeArea);
     }
 
     public override void OnEpisodeBegin()
     {
+        ReleaseActiveBox();
         if (area != null)
         {
             area.ResetArea();
@@ -40,33 +33,47 @@ public class EnemyAgent : Agent
         }
     }
 
-    public void ResetPosition()
+    public override void ResetPosition()
     {
-        if (rb == null) rb = GetComponent<Rigidbody>();
-        transform.position = initialPosition;
-        transform.rotation = initialRotation;
-        if (rb != null)
+        base.ResetPosition();
+
+        Transform playerTarget = GetPlayerTarget();
+        if (playerTarget != null)
         {
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
+            previousDistanceToPlayer = Vector3.Distance(transform.position, playerTarget.position);
+        }
+    }
+
+    private void Update()
+    {
+        // Heuristic 수동 테스트 시 키보드 입력 감지 (F: 고정, E: 잡기/해제)
+        var kb = UnityEngine.InputSystem.Keyboard.current;
+        if (kb == null) return;
+
+        if (kb.fKey.wasPressedThisFrame)
+        {
+            HandleBoxInteraction(2, SoundSource.Enemy, Time.deltaTime, false);
         }
 
-        if (area != null && area.player != null)
+        isHoldingInteractKey = kb.eKey.isPressed;
+        if (isHoldingInteractKey)
         {
-            previousDistanceToPlayer = Vector3.Distance(transform.position, area.player.transform.position);
+            HandleBoxInteraction(1, SoundSource.Enemy, Time.deltaTime, false, () => AddReward(0.05f));
+        }
+        else if (kb.eKey.wasReleasedThisFrame)
+        {
+            ReleaseActiveBox();
         }
     }
 
     public override void CollectObservations(VectorSensor sensor)
     {
-        // 1. Sound relative position (3 floats)
-        // 2. Sound timer remaining (1 float: 0.0 ~ 1.0)
-        // Total: 4 floats
-        if (area != null)
+        // 플레이어가 발생시킨 소리 정보 관측 (상대 위치 3차원 + 남은 시간 비율 1차원 = 4차원)
+        if (area != null && area.PlayerSoundTimer > 0f)
         {
-            Vector3 soundRel = area.CurrentSoundPosition - transform.position;
-            sensor.AddObservation(area.SoundTimer > 0f ? soundRel : Vector3.zero);
-            sensor.AddObservation(area.SoundTimer / area.soundDuration);
+            Vector3 soundRel = area.PlayerSoundPosition - transform.position;
+            sensor.AddObservation(soundRel * 0.05f);
+            sensor.AddObservation(area.PlayerSoundTimer / Mathf.Max(0.01f, area.soundDuration));
         }
         else
         {
@@ -77,63 +84,67 @@ public class EnemyAgent : Agent
 
     public override void OnActionReceived(ActionBuffers actions)
     {
-        float moveX = actions.ContinuousActions[0];
-        float moveZ = actions.ContinuousActions[1];
-
-        Vector3 move = new Vector3(moveX, 0f, moveZ);
-        if (move.sqrMagnitude > 1f) move.Normalize();
-
-        if (rb != null)
+        // 1. 상자 상호작용
+        if (!isHoldingInteractKey)
         {
-            rb.MovePosition(rb.position + move * moveSpeed * Time.fixedDeltaTime);
+            int boxAction = actions.DiscreteActions.Length > 0 ? actions.DiscreteActions[0] : 0;
+            HandleBoxInteraction(boxAction, SoundSource.Enemy, Time.fixedDeltaTime, autoUnlockPlayerLockedBox,
+                onUnlockSuccess: () => AddReward(0.05f));
         }
 
-        // 거리 기반 보상 성형 (Reward Shaping): 플레이어에게 가까워지면 보상(+), 멀어지면 페널티(-)
-        if (area != null && area.player != null)
+        // 2. 물리 이동 (상자 해제 채널링 중에는 제자리 정지)
+        float currentSpeed = IsChannelingBox() ? 0f : moveSpeed;
+        Vector3 moveInput = new Vector3(actions.ContinuousActions[0], 0f, actions.ContinuousActions[1]);
+        MoveAgent(moveInput, currentSpeed, Time.fixedDeltaTime);
+
+        // 3. 거리 기반 보상 성형(Reward Shaping) 및 타임스텝 페널티
+        Transform playerTarget = GetPlayerTarget();
+        if (playerTarget != null)
         {
-            float currentDistance = Vector3.Distance(transform.position, area.player.transform.position);
-            float distanceDelta = previousDistanceToPlayer - currentDistance;
-            AddReward(distanceDelta * 0.01f);
-            previousDistanceToPlayer = currentDistance;
+            float currentDist = Vector3.Distance(transform.position, playerTarget.position);
+            AddReward((previousDistanceToPlayer - currentDist) * 0.01f);
+            previousDistanceToPlayer = currentDist;
         }
 
-        // Time step penalty
         AddReward(-0.0005f);
     }
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {
+        Vector2 move = ReadKeyboardMovement(checkWasd: true, checkArrows: true);
         var continuous = actionsOut.ContinuousActions;
-        float x = 0f;
-        float z = 0f;
+        continuous[0] = move.x;
+        continuous[1] = move.y;
 
-        if (UnityEngine.InputSystem.Keyboard.current != null)
+        if (actionsOut.DiscreteActions.Length > 0)
         {
             var kb = UnityEngine.InputSystem.Keyboard.current;
-            if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) x = -1f;
-            if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) x = 1f;
-            if (kb.sKey.isPressed || kb.downArrowKey.isPressed) z = -1f;
-            if (kb.wKey.isPressed || kb.upArrowKey.isPressed) z = 1f;
+            int boxAction = 0;
+            if (kb != null)
+            {
+                if (kb.fKey.isPressed) boxAction = 2;
+                else if (kb.eKey.isPressed) boxAction = 1;
+            }
+            var discrete = actionsOut.DiscreteActions;
+            discrete[0] = boxAction;
         }
-
-        continuous[0] = x;
-        continuous[1] = z;
     }
 
     private void OnCollisionEnter(Collision collision)
     {
         if (collision.gameObject.CompareTag("Player"))
         {
-            // Caught the player!
             AddReward(1.0f);
-            if (area != null)
-            {
-                area.EndEpisodeByCatch();
-            }
-            else
-            {
-                EndEpisode();
-            }
+            if (area != null) area.EndEpisodeByCatch();
+            else EndEpisode();
         }
+    }
+
+    private Transform GetPlayerTarget()
+    {
+        if (area == null) return null;
+        if (area.player != null) return area.player.transform;
+        if (area.legacyPlayerAI != null) return area.legacyPlayerAI.transform;
+        return null;
     }
 }
