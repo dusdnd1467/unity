@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// 레거시/테스트용 단순 플레이어 AI:
@@ -21,11 +22,10 @@ public class SimplePlayerAI : MonoBehaviour
     private Vector3 initialPosition;
     private Quaternion initialRotation;
     private bool lastDummyState;
+    private bool initialPoseCaptured;
 
     private void Awake()
     {
-        initialPosition = transform.position;
-        initialRotation = transform.rotation;
         EnsureReferences();
         lastDummyState = isTrainingDummy;
     }
@@ -33,27 +33,29 @@ public class SimplePlayerAI : MonoBehaviour
     public void Initialize(MazeArea mazeArea)
     {
         area = mazeArea;
-        initialPosition = transform.position;
-        initialRotation = transform.rotation;
         EnsureReferences();
     }
 
     private void EnsureReferences()
     {
         if (navAgent == null) navAgent = GetComponent<NavMeshAgent>();
-        if (navAgent != null)
-        {
-            navAgent.speed = moveSpeed;
-        }
+        if (navAgent != null) navAgent.speed = moveSpeed;
         if (area == null) area = GetComponentInParent<MazeArea>();
+
+        if (!initialPoseCaptured)
+        {
+            initialPosition = transform.position;
+            initialRotation = transform.rotation;
+            initialPoseCaptured = true;
+        }
     }
 
     private void Update()
     {
-        var kb = UnityEngine.InputSystem.Keyboard.current;
+        var kb = Keyboard.current;
         if (kb != null && kb.tKey.wasPressedThisFrame)
         {
-            SetDummyMode(!isTrainingDummy);
+            isTrainingDummy = !isTrainingDummy;
         }
 
         if (isTrainingDummy != lastDummyState)
@@ -67,15 +69,13 @@ public class SimplePlayerAI : MonoBehaviour
             return;
         }
 
-        if (navAgent == null || !navAgent.isOnNavMesh) return;
-
-        if (!navAgent.hasPath || navAgent.pathStatus == NavMeshPathStatus.PathInvalid)
+        if (navAgent != null && navAgent.isOnNavMesh && (!navAgent.hasPath || navAgent.pathStatus == NavMeshPathStatus.PathInvalid))
         {
             UpdateDestination();
         }
     }
 
-    private void HandleManualMove(UnityEngine.InputSystem.Keyboard kb)
+    private void HandleManualMove(Keyboard kb)
     {
         if (kb == null) return;
 
@@ -85,8 +85,7 @@ public class SimplePlayerAI : MonoBehaviour
         Vector3 move = new Vector3(mx, 0f, mz);
         if (move.sqrMagnitude > 0.01f)
         {
-            move.Normalize();
-            Vector3 delta = move * moveSpeed * Time.deltaTime;
+            Vector3 delta = move.normalized * moveSpeed * Time.deltaTime;
             if (navAgent != null && navAgent.isOnNavMesh)
             {
                 navAgent.Move(delta);
@@ -138,24 +137,13 @@ public class SimplePlayerAI : MonoBehaviour
     public void ResetPlayer()
     {
         hasKey = false;
-        if (navAgent != null)
+        transform.SetPositionAndRotation(initialPosition, initialRotation);
+
+        if (navAgent != null && navAgent.isOnNavMesh)
         {
-            if (navAgent.isOnNavMesh)
-            {
-                navAgent.isStopped = false;
-                navAgent.ResetPath();
-                navAgent.Warp(initialPosition);
-            }
-            else
-            {
-                transform.position = initialPosition;
-                transform.rotation = initialRotation;
-            }
-        }
-        else
-        {
-            transform.position = initialPosition;
-            transform.rotation = initialRotation;
+            navAgent.isStopped = false;
+            navAgent.ResetPath();
+            navAgent.Warp(initialPosition);
         }
 
         UpdateDestination();
@@ -169,10 +157,6 @@ public class SimplePlayerAI : MonoBehaviour
 
     public void OnEnemySoundHeard(Vector3 soundPos, string reason)
     {
-        // 필요 시 목적지 재갱신
-        if (!isTrainingDummy)
-        {
-            UpdateDestination();
-        }
+        if (!isTrainingDummy) UpdateDestination();
     }
 }

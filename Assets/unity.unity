@@ -632,6 +632,8 @@ MonoBehaviour:
   agentParameters:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
+  useWasd: 1
+  useArrows: 0
   MaxStep: 5000
   moveSpeed: 6
   autoUnlockPlayerLockedBox: 1
@@ -2164,7 +2166,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   unlockDuration: 5
-  interactionDistance: 1.8
+  interactionDistance: 2.5
   startLocked: 0
   unlockedColor: {r: 0.75, g: 0.58, b: 0.36, a: 1}
   grabbedColor: {r: 0.35, g: 0.85, b: 0.95, a: 1}
@@ -2807,6 +2809,8 @@ MonoBehaviour:
   agentParameters:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
+  useArrows: 1
+  useWasd: 0
   MaxStep: 5000
   moveSpeed: 5
   hasKey: 0
@@ -3735,7 +3739,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   unlockDuration: 5
-  interactionDistance: 1.8
+  interactionDistance: 2.5
   startLocked: 0
   unlockedColor: {r: 0.75, g: 0.58, b: 0.36, a: 1}
   grabbedColor: {r: 0.35, g: 0.85, b: 0.95, a: 1}
@@ -4107,7 +4111,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   unlockDuration: 5
-  interactionDistance: 1.8
+  interactionDistance: 2.5
   startLocked: 0
   unlockedColor: {r: 0.75, g: 0.58, b: 0.36, a: 1}
   grabbedColor: {r: 0.35, g: 0.85, b: 0.95, a: 1}

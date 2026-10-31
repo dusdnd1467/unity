@@ -1,5 +1,4 @@
 using UnityEngine;
-using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
 
 /// <summary>
@@ -11,11 +10,30 @@ using Unity.MLAgents.Sensors;
 /// </summary>
 public class PlayerAgent : MazeAgentBase
 {
+    /// <summary>벡터 관측 크기: 열쇠 소지 1 + 목표 상대 벡터 3 + 적 소리 4 + 자신의 속도 2 + 적 상대 위치 3</summary>
+    public const int VectorObservationSize = 13;
+
+    private const float KeyReward = 1.5f;
+    private const float LockReward = 0.02f;
+    private const float GoalProgressRewardScale = 0.01f;
+    private const float EnemyAvoidRange = 8.0f;
+    private const float EnemyAvoidRewardScale = 0.008f;
+    private const float EnemyDangerRange = 2.0f;
+    private const float EnemyDangerPenalty = -0.001f;
+    private const float FarDistance = 50.0f;
+
+    [Header("수동 조작 (Heuristic)")]
+    [Tooltip("방향키(Arrow)로 수동 조작 여부 (기본: true)")]
+    public bool useArrows = true;
+
+    [Tooltip("WASD 키로 수동 조작 여부 (기본: false, 필요 시 켜서 단독 플레이 가능)")]
+    public bool useWasd = false;
+
     [Header("상태")]
     public bool hasKey = false;
 
     [Header("상자 상호작용")]
-    [Tooltip("적이 고정해 둔 상자 근처에 접근 시 자동으로 해제를 시도할지 여부")]
+    [Tooltip("적이 고정해 둔 상자 근처에 접근 시 자동으로 해제를 시도할지 여부 (RL 제어 시에만 적용)")]
     public bool autoUnlockEnemyLockedBox = true;
 
     [Header("디버그 정보 (읽기 전용)")]
@@ -25,56 +43,27 @@ public class PlayerAgent : MazeAgentBase
     private float previousDistanceToGoal;
     private float previousDistanceToEnemy;
 
-    public void InitializePlayer(MazeArea mazeArea)
-    {
-        InitializeAgent(mazeArea);
-    }
+    public override bool UseWasd => useWasd;
+    public override bool UseArrows => useArrows;
+    protected override SoundSource MySoundSource => SoundSource.Player;
+    protected override bool AutoUnlockOpponentBox => autoUnlockEnemyLockedBox;
 
-    public override void OnEpisodeBegin()
-    {
-        ReleaseActiveBox();
-        hasKey = false;
+    private Transform CurrentGoal => area == null ? null : (hasKey ? area.GetClosestDoor(transform.position) : area.GetClosestActiveKey(transform.position));
 
-        if (area != null)
-        {
-            area.ResetArea();
-        }
-        else
-        {
-            ResetPosition();
-        }
-    }
+    /// <summary>하위 호환용 래퍼</summary>
+    public void InitializePlayer(MazeArea mazeArea) => InitializeAgent(mazeArea);
 
     public override void ResetPosition()
     {
         base.ResetPosition();
         hasKey = false;
+    }
 
+    public override void RefreshTracking()
+    {
         UpdateDistances();
         previousDistanceToGoal = currentDistanceToGoal;
         previousDistanceToEnemy = currentDistanceToEnemy;
-    }
-
-    private void Update()
-    {
-        // Heuristic 수동 테스트 시 키보드 입력 감지 (F/O: 고정, E/U: 잡기/해제)
-        var kb = UnityEngine.InputSystem.Keyboard.current;
-        if (kb == null) return;
-
-        if (kb.fKey.wasPressedThisFrame || kb.oKey.wasPressedThisFrame)
-        {
-            HandleBoxInteraction(2, SoundSource.Player, Time.deltaTime, false, onLockSuccess: () => AddReward(0.02f));
-        }
-
-        isHoldingInteractKey = kb.eKey.isPressed || kb.uKey.isPressed;
-        if (isHoldingInteractKey)
-        {
-            HandleBoxInteraction(1, SoundSource.Player, Time.deltaTime, false, onUnlockSuccess: () => AddReward(0.05f));
-        }
-        else if (kb.eKey.wasReleasedThisFrame || kb.uKey.wasReleasedThisFrame)
-        {
-            ReleaseActiveBox();
-        }
     }
 
     public override void CollectObservations(VectorSensor sensor)
@@ -83,29 +72,12 @@ public class PlayerAgent : MazeAgentBase
         sensor.AddObservation(hasKey ? 1.0f : 0.0f);
 
         // 2. 현재 목표(열쇠 또는 탈출문) 상대 벡터 (3차원)
-        Vector3 goalRel = Vector3.zero;
-        if (area != null)
-        {
-            Transform target = hasKey ? area.GetClosestDoor(transform.position) : area.GetClosestActiveKey(transform.position);
-            if (target != null)
-            {
-                goalRel = (target.position - transform.position) * 0.05f;
-            }
-        }
+        Transform target = CurrentGoal;
+        Vector3 goalRel = target != null ? (target.position - transform.position) * ObservationPositionScale : Vector3.zero;
         sensor.AddObservation(goalRel);
 
         // 3. 적 소리 상대 위치(3차원) + 남은 시간 비율(1차원) (총 4차원)
-        if (area != null && area.EnemySoundTimer > 0f)
-        {
-            Vector3 soundRel = (area.EnemySoundPosition - transform.position) * 0.05f;
-            sensor.AddObservation(soundRel);
-            sensor.AddObservation(area.EnemySoundTimer / Mathf.Max(0.01f, area.soundDuration));
-        }
-        else
-        {
-            sensor.AddObservation(Vector3.zero);
-            sensor.AddObservation(0f);
-        }
+        AddSoundObservation(sensor, SoundSource.Enemy);
 
         // 4. 플레이어 자신의 Rigidbody 속도 (2차원: X, Z)
         Vector2 speedNorm = Vector2.zero;
@@ -121,110 +93,54 @@ public class PlayerAgent : MazeAgentBase
         Vector3 enemyRel = Vector3.zero;
         if (area != null && area.enemy != null)
         {
-            enemyRel = (area.enemy.transform.position - transform.position) * 0.05f;
+            enemyRel = (area.enemy.transform.position - transform.position) * ObservationPositionScale;
         }
         sensor.AddObservation(enemyRel);
-
-        // 총 VectorObservationSize = 1 + 3 + 4 + 2 + 3 = 13차원
     }
 
-    public override void OnActionReceived(ActionBuffers actions)
+    protected override void OnBoxLocked()
     {
-        // 1. 상자 상호작용
-        if (!isHoldingInteractKey)
-        {
-            int boxAction = actions.DiscreteActions.Length > 0 ? actions.DiscreteActions[0] : 0;
-            HandleBoxInteraction(
-                boxAction,
-                SoundSource.Player,
-                Time.fixedDeltaTime,
-                autoUnlockEnemyLockedBox,
-                onUnlockSuccess: () => AddReward(0.05f),
-                onLockSuccess: () => AddReward(0.02f));
-        }
+        AddReward(LockReward);
+    }
 
-        // 2. 물리 이동 (상자 해제 채널링 중에는 제자리 정지)
-        float currentSpeed = IsChannelingBox() ? 0f : moveSpeed;
-        Vector3 moveInput = new Vector3(actions.ContinuousActions[0], 0f, actions.ContinuousActions[1]);
-        MoveAgent(moveInput, currentSpeed, Time.fixedDeltaTime);
-
-        // 3. 거리 기반 보상 성형(Reward Shaping)
+    protected override void ApplyRewardShaping()
+    {
         UpdateDistances();
 
-        // 3-1. 목표(열쇠/탈출문)로 접근 시 보상
-        float goalDelta = previousDistanceToGoal - currentDistanceToGoal;
-        AddReward(goalDelta * 0.01f);
+        // 1. 목표(열쇠/탈출문) 접근 보상
+        AddReward((previousDistanceToGoal - currentDistanceToGoal) * GoalProgressRewardScale);
         previousDistanceToGoal = currentDistanceToGoal;
 
-        // 3-2. 적 회피 거리 보상 (적이 8m 이내로 접근 시)
-        if (area != null && area.enemy != null && currentDistanceToEnemy < 8.0f)
+        // 2. 적 회피 거리 보상 (근접 시에만 적용)
+        if (currentDistanceToEnemy < EnemyAvoidRange)
         {
-            float enemyDelta = currentDistanceToEnemy - previousDistanceToEnemy;
-            AddReward(enemyDelta * 0.008f);
+            AddReward((currentDistanceToEnemy - previousDistanceToEnemy) * EnemyAvoidRewardScale);
 
-            // 초근접 위험 페널티 (2m 이내)
-            if (currentDistanceToEnemy < 2.0f)
+            if (currentDistanceToEnemy < EnemyDangerRange)
             {
-                AddReward(-0.001f);
+                AddReward(EnemyDangerPenalty);
             }
-            previousDistanceToEnemy = currentDistanceToEnemy;
         }
-
-        // 3-3. 타임스텝 페널티 (빠른 클리어 유도)
-        AddReward(-0.0005f);
+        previousDistanceToEnemy = currentDistanceToEnemy;
     }
 
     private void UpdateDistances()
     {
-        currentDistanceToGoal = 50.0f;
-        currentDistanceToEnemy = 50.0f;
+        Transform goal = CurrentGoal;
+        currentDistanceToGoal = goal != null ? Vector3.Distance(transform.position, goal.position) : FarDistance;
 
-        if (area == null) return;
-
-        Transform target = hasKey ? area.GetClosestDoor(transform.position) : area.GetClosestActiveKey(transform.position);
-        if (target != null)
-        {
-            currentDistanceToGoal = Vector3.Distance(transform.position, target.position);
-        }
-
-        if (area.enemy != null)
-        {
-            currentDistanceToEnemy = Vector3.Distance(transform.position, area.enemy.transform.position);
-        }
+        Transform enemy = area != null && area.enemy != null ? area.enemy.transform : null;
+        currentDistanceToEnemy = enemy != null ? Vector3.Distance(transform.position, enemy.position) : FarDistance;
     }
 
     public void OnKeyCollected()
     {
         if (hasKey) return;
         hasKey = true;
-        AddReward(1.5f);
+        AddReward(KeyReward);
+
+        // 목표가 열쇠 → 탈출문으로 전환되므로 거리 기준값 재설정
         UpdateDistances();
         previousDistanceToGoal = currentDistanceToGoal;
-    }
-
-    public void OnEnemySoundHeard(Vector3 soundPos, string reason)
-    {
-        // VectorObservation의 area.EnemySoundPosition을 통해 자동 반영됨
-    }
-
-    public override void Heuristic(in ActionBuffers actionsOut)
-    {
-        Vector2 move = ReadKeyboardMovement(checkWasd: true, checkArrows: true, checkIjkl: true);
-        var continuous = actionsOut.ContinuousActions;
-        continuous[0] = move.x;
-        continuous[1] = move.y;
-
-        if (actionsOut.DiscreteActions.Length > 0)
-        {
-            var kb = UnityEngine.InputSystem.Keyboard.current;
-            int boxAction = 0;
-            if (kb != null)
-            {
-                if (kb.fKey.isPressed || kb.oKey.isPressed) boxAction = 2;
-                else if (kb.eKey.isPressed || kb.uKey.isPressed) boxAction = 1;
-            }
-            var discrete = actionsOut.DiscreteActions;
-            discrete[0] = boxAction;
-        }
     }
 }
