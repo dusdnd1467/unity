@@ -1,139 +1,78 @@
 using UnityEngine;
-using Unity.MLAgents;
-using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
 
-public class EnemyAgent : Agent
+/// <summary>
+/// 미로 술래잡기 환경의 적 에이전트:
+/// 플레이어를 추적하여 잡는 것을 목표로 학습합니다.
+/// 소리를 감지하고 장애물(상자)을 해제하며 플레이어에게 접근합니다.
+/// </summary>
+public class EnemyAgent : MazeAgentBase
 {
-    public float moveSpeed = 6.0f;
-    private Rigidbody rb;
-    private MazeArea area;
-    private Vector3 initialPosition;
-    private Quaternion initialRotation;
+    /// <summary>벡터 관측 크기: 플레이어가 낸 소리 (상대 위치 3 + 남은 시간 비율 1)</summary>
+    public const int VectorObservationSize = 4;
+
+    private const float CatchReward = 1.0f;
+    private const float DistanceRewardScale = 0.01f;
+
+    [Header("수동 조작 (Heuristic)")]
+    [Tooltip("WASD 키로 수동 조작 여부 (기본: true)")]
+    public bool useWasd = true;
+
+    [Tooltip("방향키(Arrow)로 수동 조작 여부 (기본: false, 플레이어와 분리)")]
+    public bool useArrows = false;
+
+    [Header("상자 상호작용")]
+    [Tooltip("플레이어가 고정해 둔 상자 근처에 접근 시 자동으로 해제를 시도할지 여부 (RL 제어 시에만 적용)")]
+    public bool autoUnlockPlayerLockedBox = true;
+
     private float previousDistanceToPlayer;
 
-    public void InitializeEnemy(MazeArea mazeArea)
-    {
-        area = mazeArea;
-        if (rb == null) rb = GetComponent<Rigidbody>();
-        initialPosition = transform.position;
-        initialRotation = transform.rotation;
-    }
+    public override bool UseWasd => useWasd;
+    public override bool UseArrows => useArrows;
+    protected override SoundSource MySoundSource => SoundSource.Enemy;
+    protected override bool AutoUnlockOpponentBox => autoUnlockPlayerLockedBox;
 
-    public override void Initialize()
-    {
-        if (rb == null) rb = GetComponent<Rigidbody>();
-        if (area == null) area = GetComponentInParent<MazeArea>();
-        initialPosition = transform.position;
-        initialRotation = transform.rotation;
-    }
+    private Transform PlayerTarget => area != null ? area.GetPlayerTransform() : null;
 
-    public override void OnEpisodeBegin()
-    {
-        if (area != null)
-        {
-            area.ResetArea();
-        }
-        else
-        {
-            ResetPosition();
-        }
-    }
+    /// <summary>하위 호환용 래퍼</summary>
+    public void InitializeEnemy(MazeArea mazeArea) => InitializeAgent(mazeArea);
 
-    public void ResetPosition()
+    public override void RefreshTracking()
     {
-        if (rb == null) rb = GetComponent<Rigidbody>();
-        transform.position = initialPosition;
-        transform.rotation = initialRotation;
-        if (rb != null)
+        Transform target = PlayerTarget;
+        if (target != null)
         {
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-        }
-
-        if (area != null && area.player != null)
-        {
-            previousDistanceToPlayer = Vector3.Distance(transform.position, area.player.transform.position);
+            previousDistanceToPlayer = Vector3.Distance(transform.position, target.position);
         }
     }
 
     public override void CollectObservations(VectorSensor sensor)
     {
-        // 1. Sound relative position (3 floats)
-        // 2. Sound timer remaining (1 float: 0.0 ~ 1.0)
-        // Total: 4 floats
-        if (area != null)
-        {
-            Vector3 soundRel = area.CurrentSoundPosition - transform.position;
-            sensor.AddObservation(area.SoundTimer > 0f ? soundRel : Vector3.zero);
-            sensor.AddObservation(area.SoundTimer / area.soundDuration);
-        }
-        else
-        {
-            sensor.AddObservation(Vector3.zero);
-            sensor.AddObservation(0f);
-        }
+        AddSoundObservation(sensor, SoundSource.Player);
     }
 
-    public override void OnActionReceived(ActionBuffers actions)
+    protected override void ApplyRewardShaping()
     {
-        float moveX = actions.ContinuousActions[0];
-        float moveZ = actions.ContinuousActions[1];
+        Transform target = PlayerTarget;
+        if (target == null) return;
 
-        Vector3 move = new Vector3(moveX, 0f, moveZ);
-        if (move.sqrMagnitude > 1f) move.Normalize();
-
-        if (rb != null)
-        {
-            rb.MovePosition(rb.position + move * moveSpeed * Time.fixedDeltaTime);
-        }
-
-        // 거리 기반 보상 성형 (Reward Shaping): 플레이어에게 가까워지면 보상(+), 멀어지면 페널티(-)
-        if (area != null && area.player != null)
-        {
-            float currentDistance = Vector3.Distance(transform.position, area.player.transform.position);
-            float distanceDelta = previousDistanceToPlayer - currentDistance;
-            AddReward(distanceDelta * 0.01f);
-            previousDistanceToPlayer = currentDistance;
-        }
-
-        // Time step penalty
-        AddReward(-0.0005f);
-    }
-
-    public override void Heuristic(in ActionBuffers actionsOut)
-    {
-        var continuous = actionsOut.ContinuousActions;
-        float x = 0f;
-        float z = 0f;
-
-        if (UnityEngine.InputSystem.Keyboard.current != null)
-        {
-            var kb = UnityEngine.InputSystem.Keyboard.current;
-            if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) x = -1f;
-            if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) x = 1f;
-            if (kb.sKey.isPressed || kb.downArrowKey.isPressed) z = -1f;
-            if (kb.wKey.isPressed || kb.upArrowKey.isPressed) z = 1f;
-        }
-
-        continuous[0] = x;
-        continuous[1] = z;
+        float currentDist = Vector3.Distance(transform.position, target.position);
+        AddReward((previousDistanceToPlayer - currentDist) * DistanceRewardScale);
+        previousDistanceToPlayer = currentDist;
     }
 
     private void OnCollisionEnter(Collision collision)
     {
-        if (collision.gameObject.CompareTag("Player"))
+        if (!collision.gameObject.CompareTag("Player")) return;
+
+        if (area != null)
         {
-            // Caught the player!
-            AddReward(1.0f);
-            if (area != null)
-            {
-                area.EndEpisodeByCatch();
-            }
-            else
-            {
-                EndEpisode();
-            }
+            area.EndEpisodeByCatch();
+        }
+        else
+        {
+            AddReward(CatchReward);
+            EndEpisode();
         }
     }
 }
