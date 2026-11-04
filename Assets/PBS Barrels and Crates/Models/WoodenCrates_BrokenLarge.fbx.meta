@@ -1,83 +1,84 @@
 fileFormatVersion: 2
-guid: 44cf6c0fc05c5433f88a685d1de9c913
-timeCreated: 1487941883
-licenseType: Store
+guid: e48a23c9003a82c40a3de65b3daa055a
 ModelImporter:
-  serializedVersion: 19
-  fileIDToRecycleName:
-    100000: WoodenCrate_BrokenSmall.013_cell
-    100002: WoodenCrate_BrokenSmall.013_cell.002
-    100004: WoodenCrate_BrokenSmall.013_cell.003
-    100006: WoodenCrate_BrokenSmall.013_cell.005
-    100008: WoodenCrate_BrokenSmall.013_cell.009
-    100010: //RootNode
-    400000: WoodenCrate_BrokenSmall.013_cell
-    400002: WoodenCrate_BrokenSmall.013_cell.002
-    400004: WoodenCrate_BrokenSmall.013_cell.003
-    400006: WoodenCrate_BrokenSmall.013_cell.005
-    400008: WoodenCrate_BrokenSmall.013_cell.009
-    400010: //RootNode
-    2300000: WoodenCrate_BrokenSmall.013_cell
-    2300002: WoodenCrate_BrokenSmall.013_cell.002
-    2300004: WoodenCrate_BrokenSmall.013_cell.003
-    2300006: WoodenCrate_BrokenSmall.013_cell.005
-    2300008: WoodenCrate_BrokenSmall.013_cell.009
-    3300000: WoodenCrate_BrokenSmall.013_cell
-    3300002: WoodenCrate_BrokenSmall.013_cell.002
-    3300004: WoodenCrate_BrokenSmall.013_cell.003
-    3300006: WoodenCrate_BrokenSmall.013_cell.005
-    3300008: WoodenCrate_BrokenSmall.013_cell.009
-    4300000: WoodenCrate_BrokenSmall.013_cell.009
-    4300002: WoodenCrate_BrokenSmall.013_cell.005
-    4300004: WoodenCrate_BrokenSmall.013_cell.003
-    4300006: WoodenCrate_BrokenSmall.013_cell.002
-    4300008: WoodenCrate_BrokenSmall.013_cell
+  serializedVersion: 22200
+  internalIDToNameTable: []
+  externalObjects: {}
   materials:
-    importMaterials: 1
+    materialImportMode: 2
     materialName: 0
     materialSearch: 1
+    materialLocation: 1
   animations:
     legacyGenerateAnimations: 4
     bakeSimulation: 0
     resampleCurves: 1
     optimizeGameObjects: 0
+    removeConstantScaleCurves: 0
     motionNodeName: 
     animationImportErrors: 
     animationImportWarnings: 
     animationRetargetingWarnings: 
     animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
     animationCompression: 1
     animationRotationError: 0.5
     animationPositionError: 0.5
     animationScaleError: 0.5
     animationWrapMode: 0
     extraExposedTransformPaths: []
+    extraUserProperties: []
     clipAnimations: []
-    isReadable: 1
+    isReadable: 0
   meshes:
     lODScreenPercentages: []
-    globalScale: 0.25
+    globalScale: 1
     meshCompression: 0
     addColliders: 0
+    useSRGBMaterialColor: 1
+    sortHierarchyByName: 1
+    importPhysicalCameras: 1
+    importVisibility: 1
     importBlendShapes: 1
+    importCameras: 1
+    importLights: 1
+    nodeNameCollisionStrategy: 1
+    fileIdsGeneration: 2
     swapUVChannels: 0
     generateSecondaryUV: 0
     useFileUnits: 1
-    optimizeMeshForGPU: 1
     keepQuads: 0
     weldVertices: 1
+    bakeAxisConversion: 0
+    preserveHierarchy: 0
+    skinWeightsMode: 0
+    maxBonesPerVertex: 4
+    minBoneWeight: 0.001
+    optimizeBones: 1
+    meshOptimizationFlags: -1
+    indexFormat: 0
     secondaryUVAngleDistortion: 8
     secondaryUVAreaDistortion: 15.000001
     secondaryUVHardAngle: 88
+    secondaryUVMarginMethod: 1
+    secondaryUVMinLightmapResolution: 40
+    secondaryUVMinObjectScale: 1
     secondaryUVPackMargin: 4
     useFileScale: 1
+    strictVertexDataChecks: 0
   tangentSpace:
     normalSmoothAngle: 60
     normalImportMode: 0
     tangentImportMode: 3
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  referencedClips: []
   importAnimation: 1
-  copyAvatar: 0
   humanDescription:
+    serializedVersion: 3
     human: []
     skeleton: []
     armTwist: 0.5
@@ -87,19 +88,20 @@ ModelImporter:
     armStretch: 0.05
     legStretch: 0.05
     feetSpacing: 0
+    globalScale: 1
     rootMotionBoneName: 
     hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
   lastHumanDescriptionAvatarSource: {instanceID: 0}
-  animationType: 0
+  autoGenerateAvatarMappingIfUnspecified: 1
+  animationType: 2
   humanoidOversampling: 1
+  avatarSetup: 0
+  addHumanoidExtraRootOnlyWhenUsingAvatar: 1
+  importBlendShapeDeformPercent: 1
+  remapMaterialsIfMaterialImportModeIsNone: 0
   additionalBone: 0
   userData: 
   assetBundleName: 
   assetBundleVariant: 
-AssetOrigin:
-  serializedVersion: 1
-  productId: 34608
-  packageName: PBR Barrels and Crates
-  packageVersion: 1.8
-  assetPath: Assets/PBS Barrels and Crates/Models/WoodenCrates_BrokenLarge.fbx
-  uploadId: 521233
