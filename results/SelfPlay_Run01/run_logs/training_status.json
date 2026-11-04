@@ -1,0 +1,125 @@
+{
+    "Enemy": {
+        "checkpoints": [
+            {
+                "steps": 1499983,
+                "file_path": "results\\SelfPlay_Run01\\Enemy\\Enemy-1499983.onnx",
+                "reward": null,
+                "creation_time": 1793484168.0215373,
+                "auxillary_file_paths": [
+                    "results\\SelfPlay_Run01\\Enemy\\Enemy-1499983.pt"
+                ]
+            },
+            {
+                "steps": 1999961,
+                "file_path": "results\\SelfPlay_Run01\\Enemy\\Enemy-1999961.onnx",
+                "reward": 0.681174524128437,
+                "creation_time": 1793490043.2292259,
+                "auxillary_file_paths": [
+                    "results\\SelfPlay_Run01\\Enemy\\Enemy-1999961.pt"
+                ]
+            },
+            {
+                "steps": 2499991,
+                "file_path": "results\\SelfPlay_Run01\\Enemy\\Enemy-2499991.onnx",
+                "reward": 0.365022701743458,
+                "creation_time": 1793495895.4988825,
+                "auxillary_file_paths": [
+                    "results\\SelfPlay_Run01\\Enemy\\Enemy-2499991.pt"
+                ]
+            },
+            {
+                "steps": 2999939,
+                "file_path": "results\\SelfPlay_Run01\\Enemy\\Enemy-2999939.onnx",
+                "reward": -0.7282325066626072,
+                "creation_time": 1793501760.3932521,
+                "auxillary_file_paths": [
+                    "results\\SelfPlay_Run01\\Enemy\\Enemy-2999939.pt"
+                ]
+            },
+            {
+                "steps": 3001155,
+                "file_path": "results\\SelfPlay_Run01\\Enemy\\Enemy-3001155.onnx",
+                "reward": -0.5964981243014336,
+                "creation_time": 1793502349.3967073,
+                "auxillary_file_paths": [
+                    "results\\SelfPlay_Run01\\Enemy\\Enemy-3001155.pt"
+                ]
+            }
+        ],
+        "elo": 1541.997361638833,
+        "final_checkpoint": {
+            "steps": 3001155,
+            "file_path": "results\\SelfPlay_Run01\\Enemy.onnx",
+            "reward": -0.5964981243014336,
+            "creation_time": 1793502349.3967073,
+            "auxillary_file_paths": [
+                "results\\SelfPlay_Run01\\Enemy\\Enemy-3001155.pt"
+            ]
+        }
+    },
+    "Player": {
+        "checkpoints": [
+            {
+                "steps": 1499944,
+                "file_path": "results\\SelfPlay_Run01\\Player\\Player-1499944.onnx",
+                "reward": -1.880169901996851,
+                "creation_time": 1793484754.8261533,
+                "auxillary_file_paths": [
+                    "results\\SelfPlay_Run01\\Player\\Player-1499944.pt"
+                ]
+            },
+            {
+                "steps": 1999975,
+                "file_path": "results\\SelfPlay_Run01\\Player\\Player-1999975.onnx",
+                "reward": -1.7727856785058975,
+                "creation_time": 1793490625.2981722,
+                "auxillary_file_paths": [
+                    "results\\SelfPlay_Run01\\Player\\Player-1999975.pt"
+                ]
+            },
+            {
+                "steps": 2499976,
+                "file_path": "results\\SelfPlay_Run01\\Player\\Player-2499976.onnx",
+                "reward": -1.520268239080906,
+                "creation_time": 1793496482.7564354,
+                "auxillary_file_paths": [
+                    "results\\SelfPlay_Run01\\Player\\Player-2499976.pt"
+                ]
+            },
+            {
+                "steps": 2999975,
+                "file_path": "results\\SelfPlay_Run01\\Player\\Player-2999975.onnx",
+                "reward": -1.972989708185196,
+                "creation_time": 1793502349.3459373,
+                "auxillary_file_paths": [
+                    "results\\SelfPlay_Run01\\Player\\Player-2999975.pt"
+                ]
+            },
+            {
+                "steps": 3000039,
+                "file_path": "results\\SelfPlay_Run01\\Player\\Player-3000039.onnx",
+                "reward": -1.972989708185196,
+                "creation_time": 1793502349.4589868,
+                "auxillary_file_paths": [
+                    "results\\SelfPlay_Run01\\Player\\Player-3000039.pt"
+                ]
+            }
+        ],
+        "elo": 878.6167440392798,
+        "final_checkpoint": {
+            "steps": 3000039,
+            "file_path": "results\\SelfPlay_Run01\\Player.onnx",
+            "reward": -1.972989708185196,
+            "creation_time": 1793502349.4589868,
+            "auxillary_file_paths": [
+                "results\\SelfPlay_Run01\\Player\\Player-3000039.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.2.0.dev0",
+        "torch_version": "2.2.2+cu121"
+    }
+}

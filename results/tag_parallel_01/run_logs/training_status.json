@@ -1,0 +1,51 @@
+{
+    "Enemy": {
+        "checkpoints": [
+            {
+                "steps": 473466,
+                "file_path": "results\\tag_parallel_01\\Enemy\\Enemy-473466.onnx",
+                "reward": null,
+                "creation_time": 1793522457.9877212,
+                "auxillary_file_paths": [
+                    "results\\tag_parallel_01\\Enemy\\Enemy-473466.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 473466,
+            "file_path": "results\\tag_parallel_01\\Enemy.onnx",
+            "reward": null,
+            "creation_time": 1793522457.9877212,
+            "auxillary_file_paths": [
+                "results\\tag_parallel_01\\Enemy\\Enemy-473466.pt"
+            ]
+        }
+    },
+    "Player": {
+        "checkpoints": [
+            {
+                "steps": 473466,
+                "file_path": "results\\tag_parallel_01\\Player\\Player-473466.onnx",
+                "reward": null,
+                "creation_time": 1793522458.0445285,
+                "auxillary_file_paths": [
+                    "results\\tag_parallel_01\\Player\\Player-473466.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 473466,
+            "file_path": "results\\tag_parallel_01\\Player.onnx",
+            "reward": null,
+            "creation_time": 1793522458.0445285,
+            "auxillary_file_paths": [
+                "results\\tag_parallel_01\\Player\\Player-473466.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.2.0.dev0",
+        "torch_version": "2.2.2+cu121"
+    }
+}

@@ -8,11 +8,11 @@ using Unity.MLAgents.Sensors;
 /// </summary>
 public class EnemyAgent : MazeAgentBase
 {
-    /// <summary>벡터 관측 크기: 플레이어가 낸 소리 (상대 위치 3 + 남은 시간 비율 1)</summary>
+    /// <summary>벡터 관측 크기: 플레이어가 낸 소리 (4) = 총 4차원</summary>
     public const int VectorObservationSize = 4;
 
     private const float CatchReward = 1.0f;
-    private const float DistanceRewardScale = 0.01f;
+    private const float DistanceRewardScale = 0.003f;
 
     [Header("수동 조작 (Heuristic)")]
     [Tooltip("WASD 키로 수동 조작 여부 (기본: true)")]
@@ -21,16 +21,11 @@ public class EnemyAgent : MazeAgentBase
     [Tooltip("방향키(Arrow)로 수동 조작 여부 (기본: false, 플레이어와 분리)")]
     public bool useArrows = false;
 
-    [Header("상자 상호작용")]
-    [Tooltip("플레이어가 고정해 둔 상자 근처에 접근 시 자동으로 해제를 시도할지 여부 (RL 제어 시에만 적용)")]
-    public bool autoUnlockPlayerLockedBox = true;
-
     private float previousDistanceToPlayer;
 
     public override bool UseWasd => useWasd;
     public override bool UseArrows => useArrows;
     protected override SoundSource MySoundSource => SoundSource.Enemy;
-    protected override bool AutoUnlockOpponentBox => autoUnlockPlayerLockedBox;
 
     private Transform PlayerTarget => area != null ? area.GetPlayerTransform() : null;
 
@@ -49,6 +44,7 @@ public class EnemyAgent : MazeAgentBase
     public override void CollectObservations(VectorSensor sensor)
     {
         AddSoundObservation(sensor, SoundSource.Player);
+        // 참고: 상자 및 플레이어의 물리적 탐지는 머리에 장착된 3D RayPerceptionSensor로 수행됩니다.
     }
 
     protected override void ApplyRewardShaping()

@@ -16,7 +16,7 @@ public enum SoundSource
 /// </summary>
 public class MazeArea : MonoBehaviour
 {
-    private const float PlayerEscapeReward = 2.5f;
+    private const float PlayerEscapeReward = 1.0f;
     private const float EnemyEscapePenalty = -1.0f;
     private const float PlayerCaughtPenalty = -1.0f;
     private const float EnemyCatchReward = 1.0f;
@@ -140,6 +140,25 @@ public class MazeArea : MonoBehaviour
         if (legacyPlayerAI != null) legacyPlayerAI.Initialize(this);
         if (enemy != null) enemy.InitializeAgent(this);
 
+        // 자식 열쇠, 문, 상자 자동 수집 및 초기화
+        if (keys == null || keys.Count == 0 || keys.Exists(k => k == null))
+        {
+            keys = new List<KeyItem>(GetComponentsInChildren<KeyItem>(true));
+        }
+        if (doors == null || doors.Count == 0 || doors.Exists(d => d == null))
+        {
+            doors = new List<EscapeDoor>(GetComponentsInChildren<EscapeDoor>(true));
+        }
+        if (keySpawnPoints == null || keySpawnPoints.Count == 0 || keySpawnPoints.Exists(p => p == null))
+        {
+            Transform spParent = transform.Find("KeySpawnPoints");
+            if (spParent != null)
+            {
+                keySpawnPoints = new List<Transform>();
+                foreach (Transform sp in spParent) keySpawnPoints.Add(sp);
+            }
+        }
+
         for (int i = 0; i < keys.Count; i++) if (keys[i] != null) keys[i].Initialize(this);
         for (int i = 0; i < doors.Count; i++) if (doors[i] != null) doors[i].Initialize(this);
         for (int i = 0; i < boxes.Count; i++) if (boxes[i] != null) boxes[i].Initialize(this);
@@ -218,7 +237,7 @@ public class MazeArea : MonoBehaviour
                 {
                     targetPos = hit.position;
                 }
-                targetPos.y = keyHeight;
+                targetPos.y = transform.position.y + keyHeight;
                 key.ResetKey(targetPos);
                 spawned++;
             }
@@ -243,7 +262,10 @@ public class MazeArea : MonoBehaviour
 
         if (keyCandidates.Count == 0 && defaultSpawnPositions != null)
         {
-            keyCandidates.AddRange(defaultSpawnPositions);
+            for (int i = 0; i < defaultSpawnPositions.Count; i++)
+            {
+                keyCandidates.Add(transform.TransformPoint(defaultSpawnPositions[i]));
+            }
         }
     }
 

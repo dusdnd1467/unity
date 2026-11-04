@@ -16,9 +16,6 @@ public abstract class MazeAgentBase : Agent
     /// <summary>위치 관측값 정규화 계수 (월드 좌표 → 대략 [-1, 1])</summary>
     protected const float ObservationPositionScale = 0.05f;
 
-    /// <summary>공통 상자 해제 보상</summary>
-    protected const float DefaultBoxUnlockReward = 0.05f;
-
     /// <summary>공통 타임스텝 페널티 (빠른 클리어 유도)</summary>
     protected const float DefaultTimeStepPenalty = -0.0005f;
 
@@ -64,20 +61,14 @@ public abstract class MazeAgentBase : Agent
     /// <summary>상자 조작 시 발생하는 소리의 주체</summary>
     protected abstract SoundSource MySoundSource { get; }
 
-    /// <summary>상대가 고정한 상자에 접근하면 자동으로 해제를 시도할지 여부 (RL 제어 시에만 적용)</summary>
-    protected abstract bool AutoUnlockOpponentBox { get; }
-
     /// <summary>거리 기반 보상 등 에이전트별 보상 성형 (매 액션마다 호출)</summary>
     protected abstract void ApplyRewardShaping();
 
-    /// <summary>상자 고정 성공 시 호출 (보상 지급 등)</summary>
+    /// <summary>상자 고정 성공 시 호출</summary>
     protected virtual void OnBoxLocked() { }
 
-    /// <summary>상자 해제 성공 시 기본 보상 지급 (필요 시 override 가능)</summary>
-    protected virtual void OnBoxUnlocked()
-    {
-        AddReward(DefaultBoxUnlockReward);
-    }
+    /// <summary>상자 해제 성공 시 호출</summary>
+    protected virtual void OnBoxUnlocked() { }
 
     /// <summary>모든 에이전트의 위치 리셋이 끝난 뒤 보상 계산용 이전 거리 값을 다시 초기화합니다.</summary>
     public virtual void RefreshTracking() { }
@@ -185,8 +176,7 @@ public abstract class MazeAgentBase : Agent
     {
         bool manual = IsHeuristicMode;
         int boxAction = manual ? ConsumeManualBoxAction() : ReadPolicyBoxAction(actions);
-        bool autoUnlock = AutoUnlockOpponentBox && !manual;
-        HandleBoxInteraction(boxAction, autoUnlock);
+        HandleBoxInteraction(boxAction);
     }
 
     private int ReadPolicyBoxAction(ActionBuffers actions)
@@ -201,7 +191,7 @@ public abstract class MazeAgentBase : Agent
         return effective;
     }
 
-    private void HandleBoxInteraction(int actionType, bool autoUnlockOpponentBox)
+    private void HandleBoxInteraction(int actionType)
     {
         if (area == null) return;
 
@@ -248,10 +238,8 @@ public abstract class MazeAgentBase : Agent
             return;
         }
 
-        // 3. 잠긴 상자 해제 채널링
-        bool wantsUnlock = actionType == BoxActionToggleGrab
-                           || actionType == BoxActionUnlockHold
-                           || (autoUnlockOpponentBox && box.LockedBy != MySoundSource);
+        // 3. 잠긴 상자 해제 채널링 (에이전트가 명시적으로 잠금 해제 액션(UnlockHold)을 유지할 때만 수행)
+        bool wantsUnlock = actionType == BoxActionUnlockHold;
 
         if (wantsUnlock)
         {
@@ -308,6 +296,33 @@ public abstract class MazeAgentBase : Agent
             sensor.AddObservation(Vector3.zero);
             sensor.AddObservation(0f);
         }
+    }
+
+    /// <summary>
+    /// 가장 가까운 상자 정보 관측 (상대 위치 3차원 + 잠금 상태 1차원 = 총 4차원)
+    /// 잠금 상태: 0=미잠금, 1=내가 잠금, -1=상대가 잠금
+    /// </summary>
+    protected void AddClosestBoxObservation(VectorSensor sensor)
+    {
+        if (area != null)
+        {
+            MovableBox closestBox = area.GetClosestBox(transform.position);
+            if (closestBox != null)
+            {
+                sensor.AddObservation((closestBox.transform.position - transform.position) * ObservationPositionScale);
+
+                float lockState = 0f;
+                if (closestBox.IsLocked)
+                {
+                    lockState = (closestBox.LockedBy == MySoundSource) ? 1.0f : -1.0f;
+                }
+                sensor.AddObservation(lockState);
+                return;
+            }
+        }
+
+        sensor.AddObservation(Vector3.zero);
+        sensor.AddObservation(0f);
     }
 
     // ───────────────────────────── 수동 조작 (Heuristic) ─────────────────────────────

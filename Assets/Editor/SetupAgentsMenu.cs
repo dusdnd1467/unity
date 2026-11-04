@@ -51,7 +51,6 @@ public static class SetupAgentsMenu
         PlayerAgent playerAgent = GetOrAddComponent<PlayerAgent>(playerObj);
         playerAgent.MaxStep = 5000;
         playerAgent.moveSpeed = 5.0f;
-        playerAgent.autoUnlockEnemyLockedBox = true;
         playerAgent.useArrows = true;
         playerAgent.useWasd = false;
 
@@ -62,15 +61,13 @@ public static class SetupAgentsMenu
         rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
         rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionY;
 
-        // 4. BehaviorParameters 설정
-        // 상자 상호작용은 이산 액션 브랜치(0:없음 1:잡기/놓기 2:고정 3:해제)를 추가하면 RL 정책도 사용할 수 있지만,
-        // 기존 학습 결과(.onnx)와 호환되도록 연속 이동 2개만 사용합니다.
+        // 4. BehaviorParameters 설정 (연속 이동 2 + 이산 상자 상호작용 1브랜치[크기 4: 0유지, 1잡기/놓기, 2고정, 3해제])
         BehaviorParameters bp = GetOrAddComponent<BehaviorParameters>(playerObj);
         bp.BehaviorName = "Player";
         bp.BehaviorType = BehaviorType.Default;
         bp.BrainParameters.VectorObservationSize = PlayerAgent.VectorObservationSize;
         bp.BrainParameters.NumStackedVectorObservations = 1;
-        bp.BrainParameters.ActionSpec = ActionSpec.MakeContinuous(2);
+        bp.BrainParameters.ActionSpec = new ActionSpec(2, new int[] { 4 });
         bp.TeamId = 1;
 
         // 5. DecisionRequester 설정
@@ -78,10 +75,10 @@ public static class SetupAgentsMenu
         dr.DecisionPeriod = 5;
         dr.TakeActionsBetweenDecisions = true;
 
-        // 6. RayPerceptionSensor3D 설정
+        // 6. RayPerceptionSensor3D 설정 (상자 Box 태그 추가)
         RayPerceptionSensorComponent3D raySensor = GetOrAddComponent<RayPerceptionSensorComponent3D>(playerObj);
         raySensor.SensorName = "PlayerRaySensor";
-        raySensor.DetectableTags = new List<string> { "Wall", "Enemy", "Door", "Key" };
+        raySensor.DetectableTags = new List<string> { "Wall", "Enemy", "Door", "Key", "Box" };
         raySensor.RaysPerDirection = 8;
         raySensor.MaxRayDegrees = 180f;
         raySensor.SphereCastRadius = 0.25f;

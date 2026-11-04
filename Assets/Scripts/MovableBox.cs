@@ -27,6 +27,13 @@ public class MovableBox : MonoBehaviour
     [Tooltip("에피소드 시작 시 기본 고정 여부")]
     public bool startLocked = false;
 
+    [Header("쿨타임 설정")]
+    [Tooltip("상자가 잠긴 직후 잠금 해제를 시도할 수 있을 때까지의 쿨타임 (초)")]
+    public float unlockCooldown = 3.0f;
+
+    [Tooltip("상자가 잠금 해제된 직후 다시 잠글 수 있을 때까지의 쿨타임 (초)")]
+    public float relockCooldown = 3.0f;
+
     [Header("시각 피드백 색상")]
     public Color unlockedColor = new Color(0.75f, 0.58f, 0.36f, 1f);
     public Color grabbedColor = new Color(0.35f, 0.85f, 0.95f, 1f);
@@ -36,6 +43,8 @@ public class MovableBox : MonoBehaviour
     [Header("실시간 상태 (읽기 전용)")]
     [SerializeField] private bool isLocked;
     [SerializeField] private float unlockProgress;
+    [SerializeField] private float unlockCooldownRemaining;
+    [SerializeField] private float relockCooldownRemaining;
     [SerializeField] private GameObject currentCarrier;
     [SerializeField] private GameObject currentUnlocker;
     [SerializeField] private SoundSource lockedBy = SoundSource.None;
@@ -46,6 +55,11 @@ public class MovableBox : MonoBehaviour
     public GameObject CurrentCarrier => currentCarrier;
     public GameObject CurrentUnlocker => currentUnlocker;
     public SoundSource LockedBy => lockedBy;
+
+    public float UnlockCooldownRemaining => Mathf.Max(0f, unlockAvailableTime - Time.time);
+    public float RelockCooldownRemaining => Mathf.Max(0f, relockAvailableTime - Time.time);
+    public bool CanUnlock => isLocked && Time.time >= unlockAvailableTime;
+    public bool CanLock => !isLocked && Time.time >= relockAvailableTime;
 
     private MazeArea area;
     private Rigidbody rb;
@@ -63,6 +77,8 @@ public class MovableBox : MonoBehaviour
     private Vector3 grabOffset;
     private float lastUnlockChannelTime;
     private float unlockSoundTimer;
+    private float unlockAvailableTime;
+    private float relockAvailableTime;
 
     private void Awake()
     {
@@ -121,6 +137,9 @@ public class MovableBox : MonoBehaviour
 
     private void Update()
     {
+        unlockCooldownRemaining = UnlockCooldownRemaining;
+        relockCooldownRemaining = RelockCooldownRemaining;
+
         if (currentUnlocker == null) return;
 
         bool outOfRange = GetSurfaceDistance(currentUnlocker.transform.position) > interactionDistance + UnlockRangeMargin;
@@ -159,6 +178,10 @@ public class MovableBox : MonoBehaviour
         isLocked = startLocked;
         lockedBy = SoundSource.None;
         unlockProgress = 0f;
+        unlockAvailableTime = 0f;
+        relockAvailableTime = 0f;
+        unlockCooldownRemaining = 0f;
+        relockCooldownRemaining = 0f;
 
         rb.position = initialPosition;
         rb.rotation = initialRotation;
@@ -232,12 +255,14 @@ public class MovableBox : MonoBehaviour
     public bool TryLock(GameObject actor, SoundSource source)
     {
         if (actor == null || isLocked || !IsInRange(actor.transform.position, actor)) return false;
+        if (Time.time < relockAvailableTime) return false;
 
         StopGrab();
         CancelChannelUnlock();
 
         isLocked = true;
         lockedBy = source;
+        unlockAvailableTime = Time.time + unlockCooldown;
 
         if (area != null) area.EmitSound(transform.position, source, "BoxLock");
 
@@ -248,6 +273,7 @@ public class MovableBox : MonoBehaviour
     public bool TryChannelUnlock(GameObject actor, SoundSource source, float deltaTime)
     {
         if (actor == null || !isLocked) return false;
+        if (Time.time < unlockAvailableTime) return false;
         if (!IsInRange(actor.transform.position, actor))
         {
             if (currentUnlocker == actor) CancelChannelUnlock();
@@ -279,6 +305,7 @@ public class MovableBox : MonoBehaviour
             lockedBy = SoundSource.None;
             unlockProgress = 0f;
             currentUnlocker = null;
+            relockAvailableTime = Time.time + relockCooldown;
 
             if (area != null) area.EmitSound(transform.position, source, "BoxUnlockComplete");
 
