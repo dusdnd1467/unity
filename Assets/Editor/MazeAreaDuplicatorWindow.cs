@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 
 /// <summary>
-/// 미로 술래잡기(MazeArea) 다중 환경 자동 복제 및 격자 배치 에디터 윈도우.
+/// 미로 술래잡기(MazeArea) 다중 환경 자동 복제 및 격자 배치 에디터 윈도우:
 /// 1~16개의 환경을 원클릭으로 생성하고, 원본(Original)을 수정한 뒤에도
 /// 언제든지 최신 원본 상태로 모든 복제본을 동일하게 재동기화할 수 있습니다.
 /// </summary>
@@ -19,19 +19,28 @@ public class MazeAreaDuplicatorWindow : EditorWindow
 
     private Vector2 scrollPos;
 
+    /// <summary>
+    /// 유니티 상단 메뉴(Tools > ML-Agents > Multi-Area Duplicator)를 통해 윈도우를 엽니다.
+    /// </summary>
     [MenuItem("Tools/ML-Agents/Multi-Area Duplicator (다중 환경 생성기)")]
     public static void ShowWindow()
     {
         var window = GetWindow<MazeAreaDuplicatorWindow>("Area Duplicator");
-        window.minSize = new Vector2(380, 480);
+        window.minSize = new Vector2(380, 400);
         window.Show();
     }
 
+    /// <summary>
+    /// 에디터 윈도우 활성화 시 씬에서 원본 MazeArea를 자동 감지합니다.
+    /// </summary>
     private void OnEnable()
     {
         FindOrCreateSourceArea();
     }
 
+    /// <summary>
+    /// 에디터 윈도우 GUI를 렌더링하고 사용자 입력을 처리합니다.
+    /// </summary>
     private void OnGUI()
     {
         scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
@@ -114,23 +123,12 @@ public class MazeAreaDuplicatorWindow : EditorWindow
         }
         GUI.backgroundColor = Color.white;
 
-        EditorGUILayout.Space(15);
-
-        // 5. 기타 유틸리티 (NavMesh 안내)
-        EditorGUILayout.LabelField("4. 내비게이션 (NavMesh)", EditorStyles.boldLabel);
-        EditorGUILayout.HelpBox(
-            "다중 환경을 배치한 뒤에는 확장된 전체 구역에 대해 NavMesh를 다시 베이크(Bake)해야 열쇠 스폰 및 AI 이동이 정상 작동합니다.",
-            MessageType.None
-        );
-
-        if (GUILayout.Button("🧭 Navigation 창 열기 (Window > AI > Navigation)"))
-        {
-            EditorApplication.ExecuteMenuItem("Window/AI/Navigation");
-        }
-
         EditorGUILayout.EndScrollView();
     }
 
+    /// <summary>
+    /// 자주 사용하는 환경 개수(1, 2, 4, 6, 8, 9, 12, 16)를 원클릭으로 선택하는 빠른 버튼들을 그립니다.
+    /// </summary>
     private void DrawQuickButtons()
     {
         int[] counts = { 1, 2, 4, 6, 8, 9, 12, 16 };
@@ -154,9 +152,10 @@ public class MazeAreaDuplicatorWindow : EditorWindow
     }
 
     /// <summary>
-    /// 원본을 기준으로 N개 환경을 생성/동기화합니다.
-    /// 기존 복제본은 모두 삭제 후 최신 상태의 원본을 바탕으로 다시 복제됩니다.
+    /// 원본 MazeArea를 기준으로 지정된 개수(count)의 환경을 복제하고 격자 형태로 정렬합니다.
+    /// 기존 복제본을 안전하게 제거한 뒤 최신 상태의 원본을 새로 복제하여 완전한 동기화를 보장합니다.
     /// </summary>
+    /// <param name="count">생성/유지할 총 환경 개수 (1 = 원본만 유지)</param>
     private void ApplyDuplication(int count)
     {
         if (sourceArea == null)
@@ -182,7 +181,7 @@ public class MazeAreaDuplicatorWindow : EditorWindow
         // 2. 원본 위치를 (0, 0, 0) 기준으로 정렬
         Undo.RecordObject(sourceArea.transform, "Align Source MazeArea Position");
         sourceArea.transform.position = Vector3.zero;
-        sourceArea.name = "MazeArea"; // 원본 이름 표준화
+        sourceArea.name = "MazeArea";
         sourceArea.SetupReferences();
         EditorUtility.SetDirty(sourceArea);
 
@@ -218,13 +217,10 @@ public class MazeAreaDuplicatorWindow : EditorWindow
 
                 cloneArea.keys = new List<KeyItem>(cloneObj.GetComponentsInChildren<KeyItem>(true));
                 cloneArea.doors = new List<EscapeDoor>(cloneObj.GetComponentsInChildren<EscapeDoor>(true));
-                cloneArea.boxes = new List<MovableBox>(cloneObj.GetComponentsInChildren<MovableBox>(true));
-
-                Transform spawnParent = cloneObj.transform.Find("KeySpawnPoints");
-                if (spawnParent != null)
+                cloneArea.boxes = new List<MovableBox>();
+                foreach (var b in cloneObj.GetComponentsInChildren<MovableBox>(true))
                 {
-                    cloneArea.keySpawnPoints = new List<Transform>();
-                    foreach (Transform sp in spawnParent) cloneArea.keySpawnPoints.Add(sp);
+                    if (b.gameObject.name != "Cubes") cloneArea.boxes.Add(b);
                 }
 
                 cloneArea.SetupReferences();
@@ -240,6 +236,9 @@ public class MazeAreaDuplicatorWindow : EditorWindow
         Debug.Log($"[MazeAreaDuplicator] ✅ 총 {count}개의 환경이 최신 원본 상태로 생성/동기화되었습니다. (간격: {spacing}m, {cols}열)");
     }
 
+    /// <summary>
+    /// 씬에서 "MazeArea_Clone_" 접두사가 붙지 않은 원본 템플릿 MazeArea를 검색합니다.
+    /// </summary>
     private void FindOrCreateSourceArea()
     {
         MazeArea[] allAreas = Object.FindObjectsByType<MazeArea>(FindObjectsSortMode.None);
@@ -258,6 +257,10 @@ public class MazeAreaDuplicatorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// 현재 씬에 존재하는 모든 복제본 MazeArea 목록을 반환합니다.
+    /// </summary>
+    /// <returns>복제본 MazeArea 리스트</returns>
     private List<MazeArea> GetCurrentClones()
     {
         List<MazeArea> list = new List<MazeArea>();

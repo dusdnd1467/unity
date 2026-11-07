@@ -10,6 +10,7 @@ TagManager:
   - Door
   - Wall
   - Box
+  - LockedBox
   layers:
   - Default
   - TransparentFX

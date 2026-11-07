@@ -10,16 +10,11 @@ using Unity.MLAgents.Sensors;
 /// </summary>
 public class PlayerAgent : MazeAgentBase
 {
-    /// <summary>벡터 관측 크기: 열쇠(1) + 적 소리(4) = 총 5차원</summary>
+    /// <summary>벡터 관측 크기: 열쇠 소지(1) + 적 소리(4) = 총 5차원</summary>
     public const int VectorObservationSize = 5;
 
+    /// <summary>열쇠 획득 시 1회 부여되는 즉발 보상</summary>
     private const float KeyReward = 0.5f;
-    private const float GoalProgressRewardScale = 0.003f;
-    private const float EnemyAvoidRange = 8.0f;
-    private const float EnemyAvoidRewardScale = 0.002f;
-    private const float EnemyDangerRange = 2.0f;
-    private const float EnemyDangerPenalty = -0.001f;
-    private const float FarDistance = 50.0f;
 
     [Header("수동 조작 (Heuristic)")]
     [Tooltip("방향키(Arrow)로 수동 조작 여부 (기본: true)")]
@@ -29,86 +24,51 @@ public class PlayerAgent : MazeAgentBase
     public bool useWasd = false;
 
     [Header("상태")]
+    [Tooltip("현재 열쇠를 소지하고 있는지 여부")]
     public bool hasKey = false;
 
-    [Header("디버그 정보 (읽기 전용)")]
-    [SerializeField] private float currentDistanceToGoal;
-    [SerializeField] private float currentDistanceToEnemy;
-
-    private float previousDistanceToGoal;
-    private float previousDistanceToEnemy;
-
+    /// <summary>WASD 조작 활성화 여부</summary>
     public override bool UseWasd => useWasd;
+
+    /// <summary>방향키 조작 활성화 여부</summary>
     public override bool UseArrows => useArrows;
+
+    /// <summary>에이전트가 발생시키는 소리의 종류 (Player)</summary>
     protected override SoundSource MySoundSource => SoundSource.Player;
 
-    private Transform CurrentGoal => area == null ? null : (hasKey ? area.GetClosestDoor(transform.position) : area.GetClosestActiveKey(transform.position));
-
-    /// <summary>하위 호환용 래퍼</summary>
-    public void InitializePlayer(MazeArea mazeArea) => InitializeAgent(mazeArea);
-
+    /// <summary>
+    /// 에피소드 리셋 시 플레이어의 위치, 물리 속도 및 열쇠 소지 상태를 초기화합니다.
+    /// </summary>
     public override void ResetPosition()
     {
         base.ResetPosition();
         hasKey = false;
     }
 
-    public override void RefreshTracking()
-    {
-        UpdateDistances();
-        previousDistanceToGoal = currentDistanceToGoal;
-        previousDistanceToEnemy = currentDistanceToEnemy;
-    }
-
+    /// <summary>
+    /// 플레이어의 강화학습 벡터 관측(Vector Observation, 총 5차원)을 수집합니다.
+    /// 1. 열쇠 소지 여부 (1차원)
+    /// 2. 적이 낸 소리의 상대 위치 및 남은 시간 비율 (4차원)
+    /// </summary>
+    /// <param name="sensor">관측 데이터를 기록할 벡터 센서</param>
     public override void CollectObservations(VectorSensor sensor)
     {
-        // 1. 열쇠 소지 여부 (1차원)
+        // 1. 열쇠 소지 여부 (1차원: 0 또는 1)
         sensor.AddObservation(hasKey ? 1.0f : 0.0f);
 
         // 2. 적 소리 상대 위치(3차원) + 남은 시간 비율(1차원) (총 4차원)
         AddSoundObservation(sensor, SoundSource.Enemy);
 
-        // 참고: 목표(열쇠/문), 상자, 상대방의 물리적 탐지는 머리에 장착된 3D RayPerceptionSensor로 수행됩니다.
+        // 참고: 문, 열쇠, 벽, 적 및 상자 상태(Box / LockedBox) 탐지는 머리에 장착된 3D RayPerceptionSensor로 수행됩니다.
     }
 
-    protected override void ApplyRewardShaping()
-    {
-        UpdateDistances();
-
-        // 1. 목표(열쇠/탈출문) 접근 보상
-        AddReward((previousDistanceToGoal - currentDistanceToGoal) * GoalProgressRewardScale);
-        previousDistanceToGoal = currentDistanceToGoal;
-
-        // 2. 적 회피 거리 보상 (근접 시에만 적용)
-        if (currentDistanceToEnemy < EnemyAvoidRange)
-        {
-            AddReward((currentDistanceToEnemy - previousDistanceToEnemy) * EnemyAvoidRewardScale);
-
-            if (currentDistanceToEnemy < EnemyDangerRange)
-            {
-                AddReward(EnemyDangerPenalty);
-            }
-        }
-        previousDistanceToEnemy = currentDistanceToEnemy;
-    }
-
-    private void UpdateDistances()
-    {
-        Transform goal = CurrentGoal;
-        currentDistanceToGoal = goal != null ? Vector3.Distance(transform.position, goal.position) : FarDistance;
-
-        Transform enemy = area != null && area.enemy != null ? area.enemy.transform : null;
-        currentDistanceToEnemy = enemy != null ? Vector3.Distance(transform.position, enemy.position) : FarDistance;
-    }
-
+    /// <summary>
+    /// 열쇠를 습득했을 때 호출되어 소지 상태를 갱신하고 보상을 지급합니다.
+    /// </summary>
     public void OnKeyCollected()
     {
         if (hasKey) return;
         hasKey = true;
         AddReward(KeyReward);
-
-        // 목표가 열쇠 → 탈출문으로 전환되므로 거리 기준값 재설정
-        UpdateDistances();
-        previousDistanceToGoal = currentDistanceToGoal;
     }
 }

@@ -14,17 +14,13 @@ behaviors:
       normalize: true
       hidden_units: 128
       num_layers: 2
+      memory:
+        sequence_length: 64
+        memory_size: 128
     reward_signals:
       extrinsic:
         gamma: 0.99
         strength: 1.0
-      curiosity:
-        gamma: 0.99
-        strength: 0.01
-        network_settings:
-          hidden_units: 128
-          num_layers: 2
-        learning_rate: 3.0e-4
     max_steps: 5000000
     time_horizon: 128
     summary_freq: 10000
@@ -45,17 +41,13 @@ behaviors:
       normalize: true
       hidden_units: 128
       num_layers: 2
+      memory:
+        sequence_length: 64
+        memory_size: 128
     reward_signals:
       extrinsic:
         gamma: 0.99
         strength: 1.0
-      curiosity:
-        gamma: 0.99
-        strength: 0.01
-        network_settings:
-          hidden_units: 128
-          num_layers: 2
-        learning_rate: 3.0e-4
     max_steps: 5000000
     time_horizon: 128
     summary_freq: 10000
