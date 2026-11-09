@@ -7,6 +7,7 @@ using UnityEditor.SceneManagement;
 /// 미로 술래잡기(MazeArea) 다중 환경 자동 복제 및 격자 배치 에디터 윈도우:
 /// 1~16개의 환경을 원클릭으로 생성하고, 원본(Original)을 수정한 뒤에도
 /// 언제든지 최신 원본 상태로 모든 복제본을 동일하게 재동기화할 수 있습니다.
+/// 또한 생성된 전체 환경이 화면에 한눈에 들어오도록 카메라 거리와 위치를 자동으로 조절합니다.
 /// </summary>
 public class MazeAreaDuplicatorWindow : EditorWindow
 {
@@ -16,6 +17,7 @@ public class MazeAreaDuplicatorWindow : EditorWindow
     [SerializeField] private int targetCount = 4;
     [SerializeField] private float spacing = 100f;
     [SerializeField] private int columns = 0; // 0이면 자동(제곱근 기반)
+    [SerializeField] private bool autoAdjustCamera = true;
 
     private Vector2 scrollPos;
 
@@ -26,7 +28,7 @@ public class MazeAreaDuplicatorWindow : EditorWindow
     public static void ShowWindow()
     {
         var window = GetWindow<MazeAreaDuplicatorWindow>("Area Duplicator");
-        window.minSize = new Vector2(380, 400);
+        window.minSize = new Vector2(380, 450);
         window.Show();
     }
 
@@ -46,10 +48,10 @@ public class MazeAreaDuplicatorWindow : EditorWindow
         scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
 
         EditorGUILayout.Space(10);
-        EditorGUILayout.LabelField("🎮 MazeArea 다중 환경 병렬 복제기", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("MazeArea 다중 환경 병렬 복제기", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox(
             "원본 MazeArea를 원하는 개수(1~16)로 복제하여 격자 형태로 자동 배치합니다.\n" +
-            "원본을 수정한 후 다시 숫자를 누르거나 [동기화]를 실행하면 최신 원본 상태가 모든 복제본에 똑같이 반영됩니다.",
+            "복제 시 메인 카메라의 위치와 높이를 자동으로 조절하여 전체 환경을 한눈에 볼 수 있습니다.",
             MessageType.Info
         );
 
@@ -88,8 +90,8 @@ public class MazeAreaDuplicatorWindow : EditorWindow
 
         EditorGUILayout.Space(10);
 
-        // 3. 배치 간격 설정
-        EditorGUILayout.LabelField("3. 배치 설정", EditorStyles.boldLabel);
+        // 3. 배치 및 카메라 설정
+        EditorGUILayout.LabelField("3. 배치 및 카메라 설정", EditorStyles.boldLabel);
         spacing = EditorGUILayout.FloatField("환경 간격 (Spacing)", spacing);
         if (spacing < 60f)
         {
@@ -101,11 +103,13 @@ public class MazeAreaDuplicatorWindow : EditorWindow
         int effectiveRows = Mathf.CeilToInt((float)targetCount / effectiveCols);
         EditorGUILayout.LabelField($"배치 형태: {effectiveCols}열 x {effectiveRows}행 (간격 {spacing}m)", EditorStyles.miniLabel);
 
+        autoAdjustCamera = EditorGUILayout.Toggle("카메라 자동 조절 (전체 조망)", autoAdjustCamera);
+
         EditorGUILayout.Space(15);
 
         // 4. 실행 버튼
         GUI.backgroundColor = new Color(0.35f, 0.75f, 1.0f);
-        if (GUILayout.Button($"🚀 {targetCount}개 환경으로 생성 / 동기화", GUILayout.Height(38)))
+        if (GUILayout.Button($"{targetCount}개 환경으로 생성 / 동기화", GUILayout.Height(38)))
         {
             ApplyDuplication(targetCount);
         }
@@ -113,8 +117,20 @@ public class MazeAreaDuplicatorWindow : EditorWindow
 
         EditorGUILayout.Space(5);
 
+        // 카메라 수동 맞춤 버튼
+        if (GUILayout.Button("📷 카메라를 현재 환경 전체에 맞추기", GUILayout.Height(28)))
+        {
+            List<MazeArea> currentClones = GetCurrentClones();
+            int total = 1 + currentClones.Count;
+            int c = columns > 0 ? columns : Mathf.CeilToInt(Mathf.Sqrt(total));
+            int r = Mathf.CeilToInt((float)total / c);
+            AdjustCameraForAreas(total, c, r, spacing);
+        }
+
+        EditorGUILayout.Space(5);
+
         GUI.backgroundColor = new Color(1.0f, 0.5f, 0.5f);
-        if (GUILayout.Button("🗑️ 복제본 모두 삭제 (원본 1개로 초기화)", GUILayout.Height(28)))
+        if (GUILayout.Button("복제본 모두 삭제 (원본 1개로 초기화)", GUILayout.Height(28)))
         {
             if (EditorUtility.DisplayDialog("초기화 확인", "모든 복제본을 삭제하고 원본 1개만 남기시겠습니까?", "삭제", "취소"))
             {
@@ -188,9 +204,10 @@ public class MazeAreaDuplicatorWindow : EditorWindow
         // 1개만 요청한 경우 여기서 종료
         if (count <= 1)
         {
+            if (autoAdjustCamera) AdjustCameraForAreas(1, 1, 1, spacing);
             EditorSceneManager.MarkSceneDirty(sourceArea.gameObject.scene);
             Undo.CollapseUndoOperations(undoGroup);
-            Debug.Log("[MazeAreaDuplicator] ✅ 원본 1개만 남기고 모든 복제본을 삭제했습니다.");
+            Debug.Log("[MazeAreaDuplicator] 원본 1개만 남기고 모든 복제본을 삭제했습니다.");
             return;
         }
 
@@ -213,7 +230,6 @@ public class MazeAreaDuplicatorWindow : EditorWindow
                 // 자식 오브젝트 참조 완벽 재연결
                 cloneArea.player = cloneObj.GetComponentInChildren<PlayerAgent>(true);
                 cloneArea.enemy = cloneObj.GetComponentInChildren<EnemyAgent>(true);
-                cloneArea.legacyPlayerAI = cloneObj.GetComponentInChildren<SimplePlayerAI>(true);
 
                 cloneArea.keys = new List<KeyItem>(cloneObj.GetComponentsInChildren<KeyItem>(true));
                 cloneArea.doors = new List<EscapeDoor>(cloneObj.GetComponentsInChildren<EscapeDoor>(true));
@@ -230,10 +246,85 @@ public class MazeAreaDuplicatorWindow : EditorWindow
             EditorUtility.SetDirty(cloneObj);
         }
 
+        // 4. 카메라 위치 및 높이 자동 맞춤
+        if (autoAdjustCamera)
+        {
+            int effectiveRows = Mathf.CeilToInt((float)count / cols);
+            AdjustCameraForAreas(count, cols, effectiveRows, spacing);
+        }
+
         EditorSceneManager.MarkSceneDirty(sourceArea.gameObject.scene);
         Undo.CollapseUndoOperations(undoGroup);
 
-        Debug.Log($"[MazeAreaDuplicator] ✅ 총 {count}개의 환경이 최신 원본 상태로 생성/동기화되었습니다. (간격: {spacing}m, {cols}열)");
+        Debug.Log($"[MazeAreaDuplicator] 총 {count}개의 환경이 최신 원본 상태로 생성/동기화되었습니다. (간격: {spacing}m, {cols}열)");
+    }
+
+    /// <summary>
+    /// 복제된 전체 미로 환경들이 화면에 한눈에 들어오도록 메인 카메라의 위치(중심 좌표)와 높이(Y)를 자동으로 계산하여 조정합니다.
+    /// </summary>
+    /// <param name="count">전체 환경 개수</param>
+    /// <param name="cols">가로 열 개수</param>
+    /// <param name="rows">세로 행 개수</param>
+    /// <param name="spacing">환경 간 격자 간격</param>
+    public static void AdjustCameraForAreas(int count, int cols, int rows, float spacing)
+    {
+        Camera cam = Camera.main;
+        if (cam == null) cam = Object.FindAnyObjectByType<Camera>();
+        if (cam == null)
+        {
+            Debug.LogWarning("[MazeAreaDuplicator] 씬에서 메인 카메라(Camera.main)를 찾을 수 없어 카메라 위치를 조정하지 못했습니다.");
+            return;
+        }
+
+        Undo.RecordObject(cam.transform, "Adjust Camera For Maze Areas");
+
+        // 단일 환경일 경우 기본 시점 (0, 51.1, 0) 복원
+        if (count <= 1)
+        {
+            cam.transform.position = new Vector3(0f, 51.1f, 0f);
+            cam.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            Debug.Log("[MazeAreaDuplicator] 카메라 시점을 원본 1개 환경 기본 높이(51.1m)로 맞췄습니다.");
+            return;
+        }
+
+        // 실제 배치된 마지막 행(row) 및 가로 열(col) 계산
+        int maxRow = (count - 1) / cols;
+        int effectiveCols = Mathf.Min(count, cols);
+
+        // 환경들의 격자 중심 좌표 (X, Z)
+        float centerX = (effectiveCols - 1) * spacing * 0.5f;
+        float centerZ = maxRow * spacing * 0.5f;
+
+        // 미로 한 구역의 크기 및 외곽 여백 (m)
+        const float mazeMargin = 30f;
+        float totalWidth = (effectiveCols - 1) * spacing + mazeMargin;
+        float totalDepth = maxRow * spacing + mazeMargin;
+
+        // 카메라 FOV 및 화면 비율(Aspect)을 고려한 최적 높이(Y) 계산
+        float fovRad = cam.fieldOfView * Mathf.Deg2Rad;
+        float aspect = cam.aspect > 0.01f ? cam.aspect : (16f / 9f);
+
+        float distV = (totalDepth * 0.5f) / Mathf.Tan(fovRad * 0.5f);
+        float distH = (totalWidth * 0.5f) / (Mathf.Tan(fovRad * 0.5f) * aspect);
+
+        // 여유 버퍼 15% 추가 및 기본 최소 높이 보장
+        float requiredHeight = Mathf.Max(distV, distH) * 1.15f;
+        requiredHeight = Mathf.Max(requiredHeight, 51.1f);
+
+        // Far Clip Plane이 잘리지 않도록 여유 있게 확장
+        if (cam.farClipPlane < requiredHeight * 2f)
+        {
+            Undo.RecordObject(cam, "Extend Camera Far Clip Plane");
+            cam.farClipPlane = Mathf.Max(1000f, requiredHeight * 2f);
+        }
+
+        // 직하방 탑다운 뷰 (90도) 설정 및 중심 위치로 이동
+        cam.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        cam.transform.position = new Vector3(centerX, requiredHeight, centerZ);
+
+        EditorUtility.SetDirty(cam);
+        EditorUtility.SetDirty(cam.transform);
+        Debug.Log($"[MazeAreaDuplicator] 카메라가 총 {count}개 환경({effectiveCols}열 x {maxRow + 1}행)의 중심({centerX:F1}, {centerZ:F1}) 및 높이({requiredHeight:F1}m)로 자동 조절되었습니다.");
     }
 
     /// <summary>

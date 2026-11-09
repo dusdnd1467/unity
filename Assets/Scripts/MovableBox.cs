@@ -118,23 +118,23 @@ public class MovableBox : MonoBehaviour
     /// </summary>
     private void EnsureComponents()
     {
-        if (boxCollider == null) boxCollider = GetComponent<BoxCollider>();
-        if (rb == null) rb = GetComponent<Rigidbody>();
-        if (area == null) area = GetComponentInParent<MazeArea>();
-
-        if (boxCollider != null)
+        if (boxCollider == null)
         {
+            boxCollider = GetComponent<BoxCollider>();
             boxCollider.isTrigger = false;
             boxCollider.enabled = true;
         }
 
-        if (rb != null)
+        if (rb == null)
         {
+            rb = GetComponent<Rigidbody>();
             rb.useGravity = false;
             rb.isKinematic = true;
             rb.interpolation = RigidbodyInterpolation.Interpolate;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
         }
+
+        if (area == null) area = GetComponentInParent<MazeArea>();
 
         // 초기 위치는 런타임 시작 시 1회만 확정 기록
         if (!initialPoseCaptured)
@@ -211,7 +211,7 @@ public class MovableBox : MonoBehaviour
                 unlockSoundTimer -= Time.fixedDeltaTime;
                 if (unlockSoundTimer <= 0f)
                 {
-                    if (area != null) area.EmitSound(transform.position, unlockerSource, "BoxUnlockChanneling");
+                    area.EmitSound(transform.position, unlockerSource, "BoxUnlockChanneling");
                     unlockSoundTimer = UnlockSoundInterval;
                 }
 
@@ -232,18 +232,12 @@ public class MovableBox : MonoBehaviour
     /// </summary>
     public void ResetBox()
     {
-        if (rb == null) EnsureComponents();
-
         StopGrab(null, autoLock: false);
         CancelChannelUnlock();
 
         // 에피소드 리셋 시 남아있을 수 있는 에이전트 간의 충돌 무시 상태 완벽 해제
-        if (area != null)
-        {
-            if (area.player != null) SetIgnoreCollision(area.player.gameObject, false);
-            if (area.enemy != null) SetIgnoreCollision(area.enemy.gameObject, false);
-            if (area.legacyPlayerAI != null) SetIgnoreCollision(area.legacyPlayerAI.gameObject, false);
-        }
+        if (area.player != null) SetIgnoreCollision(area.player.gameObject, false);
+        if (area.enemy != null) SetIgnoreCollision(area.enemy.gameObject, false);
 
         isLocked = startLocked;
         lockedBy = SoundSource.None;
@@ -268,7 +262,7 @@ public class MovableBox : MonoBehaviour
     public float GetSurfaceDistance(Vector3 actorPosition)
     {
         Vector3 flatActor = new Vector3(actorPosition.x, transform.position.y, actorPosition.z);
-        Vector3 closest = boxCollider != null ? boxCollider.ClosestPoint(flatActor) : transform.position;
+        Vector3 closest = boxCollider.ClosestPoint(flatActor);
         closest.y = transform.position.y;
         return Vector3.Distance(flatActor, closest);
     }
@@ -282,7 +276,7 @@ public class MovableBox : MonoBehaviour
     public bool HasLineOfSight(Vector3 actorPosition, GameObject actor = null)
     {
         Vector3 origin = actorPosition + Vector3.up * 0.5f;
-        Vector3 targetPoint = boxCollider != null ? boxCollider.ClosestPoint(origin) : transform.position;
+        Vector3 targetPoint = boxCollider.ClosestPoint(origin);
         targetPoint.y = origin.y;
 
         Vector3 rayDir = targetPoint - origin;
@@ -332,6 +326,12 @@ public class MovableBox : MonoBehaviour
 
         SetIgnoreCollision(actor, true);
         UpdateVisualState();
+
+        SoundSource source = SoundSource.None;
+        var agent = actor.GetComponent<MazeAgentBase>();
+        if (agent != null) source = agent.SoundSource;
+        area.EmitSound(transform.position, source, "BoxGrab");
+
         return true;
     }
 
@@ -392,7 +392,7 @@ public class MovableBox : MonoBehaviour
         lockedBy = source;
         unlockAvailableTime = Time.time + unlockCooldown;
 
-        if (area != null) area.EmitSound(transform.position, source, "BoxLock");
+        area.EmitSound(transform.position, source, "BoxLock");
 
         UpdateBoxTag();
         UpdateVisualState();
@@ -419,7 +419,7 @@ public class MovableBox : MonoBehaviour
         unlockProgress = 0f;
         unlockSoundTimer = 0f;
 
-        if (area != null) area.EmitSound(transform.position, source, "BoxUnlockStart");
+        area.EmitSound(transform.position, source, "BoxUnlockStart");
         UpdateVisualState();
         return true;
     }
@@ -438,7 +438,7 @@ public class MovableBox : MonoBehaviour
         currentUnlocker = null;
         relockAvailableTime = Time.time + relockCooldown;
 
-        if (area != null) area.EmitSound(transform.position, finishedSource, "BoxUnlockComplete");
+        area.EmitSound(transform.position, finishedSource, "BoxUnlockComplete");
 
         UpdateBoxTag();
         UpdateVisualState();
@@ -466,7 +466,7 @@ public class MovableBox : MonoBehaviour
     /// <param name="ignore">충돌 무시 여부</param>
     private void SetIgnoreCollision(GameObject actor, bool ignore)
     {
-        if (actor == null || boxCollider == null) return;
+        if (actor == null) return;
 
         foreach (Collider actorCollider in actor.GetComponentsInChildren<Collider>())
         {
@@ -531,8 +531,6 @@ public class MovableBox : MonoBehaviour
         for (int i = 0; i < visualRenderers.Length; i++)
         {
             Renderer r = visualRenderers[i];
-            if (r == null) continue;
-
             r.GetPropertyBlock(propBlock);
             propBlock.SetColor(BaseColorId, targetColor);
             propBlock.SetColor(ColorId, targetColor);

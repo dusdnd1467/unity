@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// 탈출문 컴포넌트:
-/// 열쇠를 소지한 플레이어(PlayerAgent 또는 SimplePlayerAI)가 문 영역(Trigger)에 도달하면 탈출 성공(에피소드 승리)을 처리합니다.
+/// 열쇠를 소지한 플레이어(PlayerAgent)가 문 영역(Trigger)에 도달하면 탈출 성공(에피소드 승리)을 처리합니다.
 /// </summary>
 public class EscapeDoor : MonoBehaviour
 {
@@ -43,7 +43,6 @@ public class EscapeDoor : MonoBehaviour
     /// <param name="target">문과 접촉한 게임 오브젝트</param>
     private void TryEscape(GameObject target)
     {
-        if (area == null || target == null) return;
         if (!area.ActorHasKey(target)) return;
 
         Debug.Log("[EscapeDoor] 플레이어가 열쇠를 획득하고 탈출문에 도착했습니다!");

@@ -81,9 +81,6 @@ public class MazeArea : MonoBehaviour
     [Tooltip("학습 중인 적(술래) 에이전트")]
     public EnemyAgent enemy;
 
-    [Header("레거시 AI 참조 (선택 사항)")]
-    [Tooltip("테스트용 단순 규칙 기반 플레이어 AI")]
-    public SimplePlayerAI legacyPlayerAI;
 
     [Header("상호작용 객체")]
     [Tooltip("환경 내의 열쇠 아이템 목록")]
@@ -128,8 +125,6 @@ public class MazeArea : MonoBehaviour
     /// <summary>현재 활성화된 유효 적 에이전트</summary>
     private EnemyAgent ActiveEnemy => enemy != null && enemy.isActiveAndEnabled ? enemy : null;
 
-    /// <summary>현재 활성화된 유효 레거시 플레이어 AI</summary>
-    private SimplePlayerAI ActiveLegacyPlayer => legacyPlayerAI != null && legacyPlayerAI.isActiveAndEnabled ? legacyPlayerAI : null;
 
     /// <summary>
     /// 컴포넌트 로드 시 하위 에이전트 및 상호작용 객체들의 참조를 자동 연결합니다.
@@ -211,11 +206,9 @@ public class MazeArea : MonoBehaviour
 
         // 4. 에이전트 참조 확인
         if (player == null) player = GetComponentInChildren<PlayerAgent>(true);
-        if (legacyPlayerAI == null) legacyPlayerAI = GetComponentInChildren<SimplePlayerAI>(true);
         if (enemy == null) enemy = GetComponentInChildren<EnemyAgent>(true);
 
         if (player != null) player.InitializeAgent(this);
-        if (legacyPlayerAI != null) legacyPlayerAI.Initialize(this);
         if (enemy != null) enemy.InitializeAgent(this);
 
         // 5. 열쇠 및 문 목록 갱신
@@ -226,9 +219,9 @@ public class MazeArea : MonoBehaviour
         doors.AddRange(GetComponentsInChildren<EscapeDoor>(true));
 
         // 6. 개별 객체 초기화
-        for (int i = 0; i < keys.Count; i++) if (keys[i] != null) keys[i].Initialize(this);
-        for (int i = 0; i < doors.Count; i++) if (doors[i] != null) doors[i].Initialize(this);
-        for (int i = 0; i < boxes.Count; i++) if (boxes[i] != null) boxes[i].Initialize(this);
+        for (int i = 0; i < keys.Count; i++) keys[i].Initialize(this);
+        for (int i = 0; i < doors.Count; i++) doors[i].Initialize(this);
+        for (int i = 0; i < boxes.Count; i++) boxes[i].Initialize(this);
 
         SyncWallColliders();
         WarnIfManualControlsOverlap();
@@ -327,14 +320,12 @@ public class MazeArea : MonoBehaviour
         playerSound.Clear();
         enemySound.Clear();
 
-        for (int i = 0; i < boxes.Count; i++) if (boxes[i] != null) boxes[i].ResetBox();
+        for (int i = 0; i < boxes.Count; i++) boxes[i].ResetBox();
         ResetKeys();
 
         if (player != null) player.ResetPosition();
         if (enemy != null) enemy.ResetPosition();
 
-        var legacy = ActiveLegacyPlayer;
-        if (legacy != null) legacy.ResetPlayer();
     }
 
     /// <summary>
@@ -352,8 +343,6 @@ public class MazeArea : MonoBehaviour
         else if (source == SoundSource.Enemy)
         {
             enemySound.Start(position, soundDuration);
-            var legacy = ActiveLegacyPlayer;
-            if (legacy != null) legacy.OnEnemySoundHeard(position, reason);
         }
     }
 
@@ -364,7 +353,7 @@ public class MazeArea : MonoBehaviour
     {
         for (int i = 0; i < keys.Count; i++)
         {
-            if (keys[i] != null) keys[i].ResetKey();
+            keys[i].ResetKey();
         }
     }
 
@@ -376,18 +365,15 @@ public class MazeArea : MonoBehaviour
     public bool TryCollectKey(Vector3 position)
     {
         var activePlayer = ActivePlayer;
-        var legacy = ActiveLegacyPlayer;
-
-        if ((activePlayer != null && activePlayer.hasKey) || (legacy != null && legacy.hasKey)) return false;
+        if (activePlayer == null || activePlayer.hasKey) return false;
 
         EmitSound(position, SoundSource.Player, "KeyCollected");
-        if (activePlayer != null) activePlayer.OnKeyCollected();
-        if (legacy != null) legacy.OnCollectedKey();
+        activePlayer.OnKeyCollected();
         return true;
     }
 
     /// <summary>
-    /// 주어진 오브젝트가 열쇠를 소지한 유효한 플레이어(PlayerAgent 또는 SimplePlayerAI)인지 검사합니다.
+    /// 주어진 오브젝트가 열쇠를 소지한 유효한 플레이어(PlayerAgent)인지 검사합니다.
     /// </summary>
     /// <param name="actor">검사할 대상 게임 오브젝트</param>
     /// <returns>열쇠 소지 플레이어이면 true</returns>
@@ -396,10 +382,7 @@ public class MazeArea : MonoBehaviour
         if (actor == null) return false;
 
         var agent = actor.GetComponentInParent<PlayerAgent>();
-        if (agent != null && agent.isActiveAndEnabled) return agent.hasKey;
-
-        var legacy = actor.GetComponentInParent<SimplePlayerAI>();
-        return legacy != null && legacy.isActiveAndEnabled && legacy.hasKey;
+        return agent != null && agent.isActiveAndEnabled && agent.hasKey;
     }
 
     /// <summary>
@@ -408,9 +391,7 @@ public class MazeArea : MonoBehaviour
     /// <returns>플레이어 Transform</returns>
     public Transform GetPlayerTransform()
     {
-        if (ActivePlayer != null) return player.transform;
-        if (ActiveLegacyPlayer != null) return legacyPlayerAI.transform;
-        return player != null ? player.transform : (legacyPlayerAI != null ? legacyPlayerAI.transform : null);
+        return player != null ? player.transform : null;
     }
 
     /// <summary>
@@ -437,12 +418,17 @@ public class MazeArea : MonoBehaviour
         var activePlayer = ActivePlayer;
         var activeEnemy = ActiveEnemy;
 
-        if (activePlayer != null) activePlayer.AddReward(playerReward);
-        if (activeEnemy != null) activeEnemy.AddReward(enemyReward);
-
         suppressAreaReset = true;
-        if (activePlayer != null) activePlayer.EndEpisode();
-        if (activeEnemy != null) activeEnemy.EndEpisode();
+        if (activePlayer != null)
+        {
+            activePlayer.AddReward(playerReward);
+            activePlayer.EndEpisode();
+        }
+        if (activeEnemy != null)
+        {
+            activeEnemy.AddReward(enemyReward);
+            activeEnemy.EndEpisode();
+        }
         suppressAreaReset = false;
 
         ResetAreaInternal();

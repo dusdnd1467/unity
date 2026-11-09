@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// 열쇠 아이템:
-/// 플레이어(PlayerAgent 또는 SimplePlayerAI)가 접촉 시 획득 처리되며, 오브젝트가 비활성화됩니다.
+/// 플레이어(PlayerAgent)가 접촉 시 획득 처리되며, 오브젝트가 비활성화됩니다.
 /// 이미 열쇠를 보유한 상태라면 중복 획득되지 않습니다.
 /// </summary>
 public class KeyItem : MonoBehaviour
@@ -60,12 +60,6 @@ public class KeyItem : MonoBehaviour
     private void OnTriggerEnter(Collider other)
     {
         if (!other.CompareTag("Player")) return;
-
-        if (area == null)
-        {
-            gameObject.SetActive(false);
-            return;
-        }
 
         // 플레이어가 아직 열쇠가 없는 경우에만 획득 성공 및 비활성화
         if (area.TryCollectKey(transform.position))
