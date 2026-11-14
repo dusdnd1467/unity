@@ -43,7 +43,6 @@ public class EscapeDoor : MonoBehaviour
     /// <param name="target">문과 접촉한 게임 오브젝트</param>
     private void TryEscape(GameObject target)
     {
-        if (area == null || target == null) return;
         if (!area.ActorHasKey(target)) return;
 
         Debug.Log("[EscapeDoor] 플레이어가 열쇠를 획득하고 탈출문에 도착했습니다!");

@@ -81,6 +81,7 @@ public class MazeArea : MonoBehaviour
     [Tooltip("학습 중인 적(술래) 에이전트")]
     public EnemyAgent enemy;
 
+
     [Header("상호작용 객체")]
     [Tooltip("환경 내의 열쇠 아이템 목록")]
     public List<KeyItem> keys = new List<KeyItem>();
@@ -123,6 +124,7 @@ public class MazeArea : MonoBehaviour
 
     /// <summary>현재 활성화된 유효 적 에이전트</summary>
     private EnemyAgent ActiveEnemy => enemy != null && enemy.isActiveAndEnabled ? enemy : null;
+
 
     /// <summary>
     /// 컴포넌트 로드 시 하위 에이전트 및 상호작용 객체들의 참조를 자동 연결합니다.
@@ -217,9 +219,9 @@ public class MazeArea : MonoBehaviour
         doors.AddRange(GetComponentsInChildren<EscapeDoor>(true));
 
         // 6. 개별 객체 초기화
-        for (int i = 0; i < keys.Count; i++) if (keys[i] != null) keys[i].Initialize(this);
-        for (int i = 0; i < doors.Count; i++) if (doors[i] != null) doors[i].Initialize(this);
-        for (int i = 0; i < boxes.Count; i++) if (boxes[i] != null) boxes[i].Initialize(this);
+        for (int i = 0; i < keys.Count; i++) keys[i].Initialize(this);
+        for (int i = 0; i < doors.Count; i++) doors[i].Initialize(this);
+        for (int i = 0; i < boxes.Count; i++) boxes[i].Initialize(this);
 
         SyncWallColliders();
         WarnIfManualControlsOverlap();
@@ -318,11 +320,12 @@ public class MazeArea : MonoBehaviour
         playerSound.Clear();
         enemySound.Clear();
 
-        for (int i = 0; i < boxes.Count; i++) if (boxes[i] != null) boxes[i].ResetBox();
+        for (int i = 0; i < boxes.Count; i++) boxes[i].ResetBox();
         ResetKeys();
 
         if (player != null) player.ResetPosition();
         if (enemy != null) enemy.ResetPosition();
+
     }
 
     /// <summary>
@@ -350,7 +353,7 @@ public class MazeArea : MonoBehaviour
     {
         for (int i = 0; i < keys.Count; i++)
         {
-            if (keys[i] != null) keys[i].ResetKey();
+            keys[i].ResetKey();
         }
     }
 
@@ -372,6 +375,7 @@ public class MazeArea : MonoBehaviour
 
     /// <summary>
     /// 주어진 오브젝트가 열쇠를 소지한 유효한 플레이어(PlayerAgent)인지 검사합니다.
+    /// 주어진 오브젝트가 열쇠를 소지한 유효한 플레이어(PlayerAgent)인지 검사합니다.
     /// </summary>
     /// <param name="actor">검사할 대상 게임 오브젝트</param>
     /// <returns>열쇠 소지 플레이어이면 true</returns>
@@ -380,6 +384,7 @@ public class MazeArea : MonoBehaviour
         if (actor == null) return false;
 
         var agent = actor.GetComponentInParent<PlayerAgent>();
+        return agent != null && agent.isActiveAndEnabled && agent.hasKey;
         return agent != null && agent.isActiveAndEnabled && agent.hasKey;
     }
 
@@ -416,12 +421,17 @@ public class MazeArea : MonoBehaviour
         var activePlayer = ActivePlayer;
         var activeEnemy = ActiveEnemy;
 
-        if (activePlayer != null) activePlayer.AddReward(playerReward);
-        if (activeEnemy != null) activeEnemy.AddReward(enemyReward);
-
         suppressAreaReset = true;
-        if (activePlayer != null) activePlayer.EndEpisode();
-        if (activeEnemy != null) activeEnemy.EndEpisode();
+        if (activePlayer != null)
+        {
+            activePlayer.AddReward(playerReward);
+            activePlayer.EndEpisode();
+        }
+        if (activeEnemy != null)
+        {
+            activeEnemy.AddReward(enemyReward);
+            activeEnemy.EndEpisode();
+        }
         suppressAreaReset = false;
 
         ResetAreaInternal();

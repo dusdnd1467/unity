@@ -61,12 +61,6 @@ public class KeyItem : MonoBehaviour
     {
         if (!other.CompareTag("Player")) return;
 
-        if (area == null)
-        {
-            gameObject.SetActive(false);
-            return;
-        }
-
         // 플레이어가 아직 열쇠가 없는 경우에만 획득 성공 및 비활성화
         if (area.TryCollectKey(transform.position))
         {

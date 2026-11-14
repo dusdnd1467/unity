@@ -107,16 +107,15 @@ public abstract class MazeAgentBase : Agent
     /// </summary>
     protected virtual void EnsureReferences()
     {
-        if (rb == null) rb = GetComponent<Rigidbody>();
-        if (behaviorParameters == null) behaviorParameters = GetComponent<BehaviorParameters>();
-
-        if (rb != null)
+        if (rb == null)
         {
+            rb = GetComponent<Rigidbody>();
             rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
             rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionY;
             rb.isKinematic = false;
         }
 
+        if (behaviorParameters == null) behaviorParameters = GetComponent<BehaviorParameters>();
         if (area == null) area = GetComponentInParent<MazeArea>();
 
         // 시작 좌표와 회전은 최초 런타임에 1회만 확정 기록 (재초기화 시 덮어쓰기 방지)
@@ -133,14 +132,7 @@ public abstract class MazeAgentBase : Agent
     /// </summary>
     public override void OnEpisodeBegin()
     {
-        if (area != null)
-        {
-            area.OnAgentEpisodeBegin(this);
-        }
-        else
-        {
-            ResetPosition();
-        }
+        area.OnAgentEpisodeBegin(this);
     }
 
     /// <summary>
@@ -153,16 +145,13 @@ public abstract class MazeAgentBase : Agent
         latchedTapAction = BoxActionNone;
         lastPolicyBoxAction = BoxActionNone;
 
-        if (rb != null)
+        if (!rb.isKinematic)
         {
-            if (!rb.isKinematic)
-            {
-                rb.linearVelocity = Vector3.zero;
-                rb.angularVelocity = Vector3.zero;
-            }
-            rb.position = initialPosition;
-            rb.rotation = initialRotation;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
         }
+        rb.position = initialPosition;
+        rb.rotation = initialRotation;
         transform.SetPositionAndRotation(initialPosition, initialRotation);
     }
 
@@ -187,7 +176,7 @@ public abstract class MazeAgentBase : Agent
     /// <param name="actions">액션 버퍼</param>
     private void ApplyMovement(ActionBuffers actions)
     {
-        if (rb == null || rb.isKinematic) return;
+        if (rb.isKinematic) return;
 
         var continuous = actions.ContinuousActions;
         Vector3 moveInput = new Vector3(continuous[0], 0f, continuous[1]);
@@ -238,7 +227,7 @@ public abstract class MazeAgentBase : Agent
     /// <param name="actionType">실행할 상자 액션 타입</param>
     private void HandleBoxInteraction(int actionType)
     {
-        if (area == null || actionType == BoxActionNone) return;
+        if (actionType == BoxActionNone) return;
 
         // 1. 이미 상자를 운반 중인 경우: 상호작용 시 내려놓고 자동 잠금(Lock)
         if (activeBox != null && activeBox.CurrentCarrier == gameObject)
@@ -335,18 +324,15 @@ public abstract class MazeAgentBase : Agent
         Vector3 soundPos = Vector3.zero;
         float remaining = 0f;
 
-        if (area != null)
+        if (heardSource == SoundSource.Player)
         {
-            if (heardSource == SoundSource.Player)
-            {
-                soundPos = area.PlayerSoundPosition;
-                remaining = area.PlayerSoundTimer;
-            }
-            else if (heardSource == SoundSource.Enemy)
-            {
-                soundPos = area.EnemySoundPosition;
-                remaining = area.EnemySoundTimer;
-            }
+            soundPos = area.PlayerSoundPosition;
+            remaining = area.PlayerSoundTimer;
+        }
+        else if (heardSource == SoundSource.Enemy)
+        {
+            soundPos = area.EnemySoundPosition;
+            remaining = area.EnemySoundTimer;
         }
 
         if (remaining > 0f)

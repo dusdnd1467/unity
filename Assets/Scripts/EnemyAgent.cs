@@ -38,7 +38,7 @@ public class EnemyAgent : MazeAgentBase
     protected override SoundSource MySoundSource => SoundSource.Enemy;
 
     /// <summary>추적 대상인 플레이어의 현재 Transform 참조</summary>
-    private Transform PlayerTarget => area != null ? area.GetPlayerTransform() : null;
+    private Transform PlayerTarget => area.GetPlayerTransform();
 
     /// <summary>
     /// 에피소드 리셋 시 적의 위치, 물리 속도 및 최초 시야 포착 플래그를 초기화합니다.
@@ -85,16 +85,9 @@ public class EnemyAgent : MazeAgentBase
     /// <param name="collision">충돌 정보</param>
     private void OnCollisionEnter(Collision collision)
     {
-        if (!collision.gameObject.CompareTag("Player")) return;
-
-        if (area != null)
+        if (collision.gameObject.CompareTag("Player"))
         {
             area.EndEpisodeByCatch();
-        }
-        else
-        {
-            AddReward(CatchReward);
-            EndEpisode();
         }
     }
 }
