@@ -213,7 +213,6 @@ public class MazeAreaDuplicatorWindow : EditorWindow
                 // 자식 오브젝트 참조 완벽 재연결
                 cloneArea.player = cloneObj.GetComponentInChildren<PlayerAgent>(true);
                 cloneArea.enemy = cloneObj.GetComponentInChildren<EnemyAgent>(true);
-                cloneArea.legacyPlayerAI = cloneObj.GetComponentInChildren<SimplePlayerAI>(true);
 
                 cloneArea.keys = new List<KeyItem>(cloneObj.GetComponentsInChildren<KeyItem>(true));
                 cloneArea.doors = new List<EscapeDoor>(cloneObj.GetComponentsInChildren<EscapeDoor>(true));

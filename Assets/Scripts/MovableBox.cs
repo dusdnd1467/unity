@@ -242,7 +242,6 @@ public class MovableBox : MonoBehaviour
         {
             if (area.player != null) SetIgnoreCollision(area.player.gameObject, false);
             if (area.enemy != null) SetIgnoreCollision(area.enemy.gameObject, false);
-            if (area.legacyPlayerAI != null) SetIgnoreCollision(area.legacyPlayerAI.gameObject, false);
         }
 
         isLocked = startLocked;
