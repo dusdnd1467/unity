@@ -148,6 +148,7 @@ public abstract class MazeAgentBase : Agent
     /// </summary>
     public virtual void ResetPosition()
     {
+        EnsureReferences();
         ReleaseActiveBox();
 
         latchedTapAction = BoxActionNone;
