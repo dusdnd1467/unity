@@ -411,14 +411,16 @@ public class MazeArea : MonoBehaviour
     public bool TryCollectKey(Vector3 position)
     {
         var activePlayer = ActivePlayer;
-        if (activePlayer == null || activePlayer.hasKey) return false;
+
+        if (activePlayer != null && activePlayer.hasKey) return false;
 
         EmitSound(position, SoundSource.Player, "KeyCollected");
-        activePlayer.OnKeyCollected();
+        if (activePlayer != null) activePlayer.OnKeyCollected();
         return true;
     }
 
     /// <summary>
+    /// 주어진 오브젝트가 열쇠를 소지한 유효한 플레이어(PlayerAgent)인지 검사합니다.
     /// 주어진 오브젝트가 열쇠를 소지한 유효한 플레이어(PlayerAgent)인지 검사합니다.
     /// </summary>
     /// <param name="actor">검사할 대상 게임 오브젝트</param>
@@ -428,6 +430,7 @@ public class MazeArea : MonoBehaviour
         if (actor == null) return false;
 
         var agent = actor.GetComponentInParent<PlayerAgent>();
+        return agent != null && agent.isActiveAndEnabled && agent.hasKey;
         return agent != null && agent.isActiveAndEnabled && agent.hasKey;
     }
 
