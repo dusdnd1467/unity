@@ -612,7 +612,7 @@ GameObject:
   - component: {fileID: 295657061}
   - component: {fileID: 295657060}
   - component: {fileID: 295657059}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Wall (5)
   m_TagString: Wall
   m_Icon: {fileID: 0}
@@ -721,7 +721,7 @@ GameObject:
   - component: {fileID: 309193677}
   - component: {fileID: 309193676}
   - component: {fileID: 309193675}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Wall (6)
   m_TagString: Wall
   m_Icon: {fileID: 0}
@@ -835,7 +835,6 @@ GameObject:
   - component: {fileID: 382926806}
   - component: {fileID: 382926809}
   - component: {fileID: 382926808}
-  - component: {fileID: 382926810}
   m_Layer: 0
   m_Name: Enemy
   m_TagString: Enemy
@@ -994,7 +993,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 4
+    VectorObservationSize: 5
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 2
@@ -1056,31 +1055,11 @@ MonoBehaviour:
     m_Bits: 4294967291
   m_ObservationStacks: 1
   m_AlternatingRayOrder: 1
-  m_UseBatchedRaycasts: 0
+  m_UseBatchedRaycasts: 1
   rayHitColor: {r: 1, g: 0, b: 0, a: 1}
   rayMissColor: {r: 1, g: 1, b: 1, a: 1}
   m_StartVerticalOffset: 0
   m_EndVerticalOffset: 0
---- !u!114 &382926810
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 382926799}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 0
-  m_OverrideArea: 0
-  m_Area: 0
-  m_OverrideGenerateLinks: 0
-  m_GenerateLinks: 0
-  m_IgnoreFromBuild: 1
-  m_ApplyToChildren: 1
-  m_AffectedAgents: ffffffff
 --- !u!1001 &383312425
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1877,7 +1856,6 @@ GameObject:
   - component: {fileID: 694045933}
   - component: {fileID: 694045932}
   - component: {fileID: 694045931}
-  - component: {fileID: 694045935}
   m_Layer: 0
   m_Name: Plane
   m_TagString: Untagged
@@ -1975,38 +1953,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1975631462}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &694045935
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 694045930}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7a5ac11cc976e418e8d13136b07e1f52, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 0
-  m_AgentTypeID: 0
-  m_CollectObjects: 0
-  m_Size: {x: 10, y: 10, z: 10}
-  m_Center: {x: 0, y: 2, z: 0}
-  m_LayerMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_UseGeometry: 0
-  m_DefaultArea: 0
-  m_GenerateLinks: 0
-  m_IgnoreNavMeshAgent: 1
-  m_IgnoreNavMeshObstacle: 1
-  m_OverrideTileSize: 0
-  m_TileSize: 256
-  m_OverrideVoxelSize: 0
-  m_VoxelSize: 0.16666667
-  m_MinRegionArea: 2
-  m_NavMeshData: {fileID: 23800000, guid: e686829c7167ff64bb397a80bce45cdc, type: 2}
-  m_BuildHeightMesh: 0
 --- !u!1 &696886458
 GameObject:
   m_ObjectHideFlags: 0
@@ -2280,7 +2226,7 @@ GameObject:
   - component: {fileID: 727920900}
   - component: {fileID: 727920899}
   - component: {fileID: 727920898}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Wall (4)
   m_TagString: Wall
   m_Icon: {fileID: 0}
@@ -2921,7 +2867,7 @@ GameObject:
   - component: {fileID: 916839974}
   - component: {fileID: 916839973}
   - component: {fileID: 916839972}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Wall (1)
   m_TagString: Wall
   m_Icon: {fileID: 0}
@@ -3168,7 +3114,6 @@ GameObject:
   - component: {fileID: 973060964}
   - component: {fileID: 973060963}
   - component: {fileID: 973060967}
-  - component: {fileID: 973060968}
   m_Layer: 0
   m_Name: Key (1)
   m_TagString: Key
@@ -3277,26 +3222,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f67bca3e77461e342bbf1cb62c0c591d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &973060968
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 973060962}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 0
-  m_OverrideArea: 0
-  m_Area: 0
-  m_OverrideGenerateLinks: 0
-  m_GenerateLinks: 0
-  m_IgnoreFromBuild: 1
-  m_ApplyToChildren: 1
-  m_AffectedAgents: ffffffff
 --- !u!4 &986695864 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5015851073235153941, guid: fd8212a6b4413da43bfbf816034a6a69, type: 3}
@@ -3405,7 +3330,7 @@ GameObject:
   - component: {fileID: 998684815}
   - component: {fileID: 998684814}
   - component: {fileID: 998684813}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Wall_S
   m_TagString: Wall
   m_Icon: {fileID: 0}
@@ -3634,7 +3559,7 @@ GameObject:
   - component: {fileID: 1001110189}
   - component: {fileID: 1001110188}
   - component: {fileID: 1001110187}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Wall_E
   m_TagString: Wall
   m_Icon: {fileID: 0}
@@ -3742,7 +3667,6 @@ GameObject:
   - component: {fileID: 1019959524}
   - component: {fileID: 1019959530}
   - component: {fileID: 1019959528}
-  - component: {fileID: 1019959529}
   m_Layer: 0
   m_Name: Cube
   m_TagString: Box
@@ -3813,26 +3737,6 @@ MonoBehaviour:
   currentCarrier: {fileID: 0}
   currentUnlocker: {fileID: 0}
   lockedBy: 0
---- !u!114 &1019959529
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1019959523}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 0
-  m_OverrideArea: 0
-  m_Area: 0
-  m_OverrideGenerateLinks: 0
-  m_GenerateLinks: 0
-  m_IgnoreFromBuild: 1
-  m_ApplyToChildren: 1
-  m_AffectedAgents: ffffffff
 --- !u!54 &1019959530
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -4037,7 +3941,6 @@ GameObject:
   - component: {fileID: 1137413794}
   - component: {fileID: 1137413793}
   - component: {fileID: 1137413797}
-  - component: {fileID: 1137413798}
   m_Layer: 0
   m_Name: Key
   m_TagString: Key
@@ -4146,26 +4049,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f67bca3e77461e342bbf1cb62c0c591d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &1137413798
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1137413791}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 0
-  m_OverrideArea: 0
-  m_Area: 0
-  m_OverrideGenerateLinks: 0
-  m_GenerateLinks: 0
-  m_IgnoreFromBuild: 1
-  m_ApplyToChildren: 1
-  m_AffectedAgents: ffffffff
 --- !u!1 &1141882124
 GameObject:
   m_ObjectHideFlags: 0
@@ -4178,7 +4061,7 @@ GameObject:
   - component: {fileID: 1141882128}
   - component: {fileID: 1141882127}
   - component: {fileID: 1141882126}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Wall
   m_TagString: Wall
   m_Icon: {fileID: 0}
@@ -4660,9 +4543,6 @@ GameObject:
   - component: {fileID: 1265105511}
   - component: {fileID: 1265105510}
   - component: {fileID: 1265105514}
-  - component: {fileID: 1265105516}
-  - component: {fileID: 1265105515}
-  - component: {fileID: 1265105517}
   - component: {fileID: 1265105520}
   - component: {fileID: 1265105521}
   - component: {fileID: 1265105522}
@@ -4792,63 +4672,6 @@ Rigidbody:
   m_Interpolate: 1
   m_Constraints: 116
   m_CollisionDetection: 1
---- !u!114 &1265105515
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1265105508}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a77b52ee7feb84044809d3425da43d2d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  hasKey: 0
-  moveSpeed: 4
-  isTrainingDummy: 0
---- !u!195 &1265105516
-NavMeshAgent:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1265105508}
-  m_Enabled: 0
-  m_AgentTypeID: 0
-  m_Radius: 0.5
-  m_Speed: 4
-  m_Acceleration: 8
-  avoidancePriority: 50
-  m_AngularSpeed: 120
-  m_StoppingDistance: 0.1
-  m_AutoTraverseOffMeshLink: 1
-  m_AutoBraking: 1
-  m_AutoRepath: 1
-  m_Height: 2
-  m_BaseOffset: 1
-  m_WalkableMask: 4294967295
-  m_ObstacleAvoidanceType: 4
---- !u!114 &1265105517
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1265105508}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 0
-  m_OverrideArea: 0
-  m_Area: 0
-  m_OverrideGenerateLinks: 0
-  m_GenerateLinks: 0
-  m_IgnoreFromBuild: 1
-  m_ApplyToChildren: 1
-  m_AffectedAgents: ffffffff
 --- !u!114 &1265105520
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4882,7 +4705,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 5
+    VectorObservationSize: 6
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 2
@@ -4944,7 +4767,7 @@ MonoBehaviour:
     m_Bits: 4294967291
   m_ObservationStacks: 1
   m_AlternatingRayOrder: 1
-  m_UseBatchedRaycasts: 0
+  m_UseBatchedRaycasts: 1
   rayHitColor: {r: 0, g: 0.5, b: 1, a: 1}
   rayMissColor: {r: 1, g: 1, b: 1, a: 1}
   m_StartVerticalOffset: 0
@@ -4961,7 +4784,7 @@ GameObject:
   - component: {fileID: 1265325865}
   - component: {fileID: 1265325864}
   - component: {fileID: 1265325863}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Wall (3)
   m_TagString: Wall
   m_Icon: {fileID: 0}
@@ -5361,7 +5184,7 @@ GameObject:
   - component: {fileID: 1330037061}
   - component: {fileID: 1330037060}
   - component: {fileID: 1330037059}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Wall_W
   m_TagString: Wall
   m_Icon: {fileID: 0}
@@ -6001,7 +5824,7 @@ GameObject:
   - component: {fileID: 1562567365}
   - component: {fileID: 1562567364}
   - component: {fileID: 1562567363}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Wall (2)
   m_TagString: Wall
   m_Icon: {fileID: 0}
@@ -6626,7 +6449,7 @@ GameObject:
   - component: {fileID: 1824508988}
   - component: {fileID: 1824508987}
   - component: {fileID: 1824508986}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Wall_N
   m_TagString: Wall
   m_Icon: {fileID: 0}
@@ -6820,7 +6643,6 @@ GameObject:
   - component: {fileID: 1949469527}
   - component: {fileID: 1949469526}
   - component: {fileID: 1949469525}
-  - component: {fileID: 1949469524}
   m_Layer: 0
   m_Name: Cube (3)
   m_TagString: Box
@@ -6844,26 +6666,6 @@ Transform:
   - {fileID: 1119546754}
   m_Father: {fileID: 2038677125}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1949469524
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1949469522}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 0
-  m_OverrideArea: 0
-  m_Area: 0
-  m_OverrideGenerateLinks: 0
-  m_GenerateLinks: 0
-  m_IgnoreFromBuild: 1
-  m_ApplyToChildren: 1
-  m_AffectedAgents: ffffffff
 --- !u!114 &1949469525
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6950,7 +6752,6 @@ GameObject:
   - component: {fileID: 1963003263}
   - component: {fileID: 1963003266}
   - component: {fileID: 1963003262}
-  - component: {fileID: 1963003261}
   m_Layer: 0
   m_Name: Cube (2)
   m_TagString: Box
@@ -6974,26 +6775,6 @@ Transform:
   - {fileID: 466307852}
   m_Father: {fileID: 2038677125}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1963003261
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1963003259}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 0
-  m_OverrideArea: 0
-  m_Area: 0
-  m_OverrideGenerateLinks: 0
-  m_GenerateLinks: 0
-  m_IgnoreFromBuild: 1
-  m_ApplyToChildren: 1
-  m_AffectedAgents: ffffffff
 --- !u!114 &1963003262
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7121,7 +6902,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   player: {fileID: 1265105520}
   enemy: {fileID: 382926806}
-  legacyPlayerAI: {fileID: 1265105515}
+  boxesRoot: {fileID: 2038677125}
+  wallsRoot: {fileID: 696886459}
   keys:
   - {fileID: 1137413797}
   - {fileID: 973060967}
@@ -7146,7 +6928,6 @@ GameObject:
   - component: {fileID: 2005489140}
   - component: {fileID: 2005489143}
   - component: {fileID: 2005489139}
-  - component: {fileID: 2005489138}
   m_Layer: 0
   m_Name: Cube (1)
   m_TagString: Box
@@ -7170,26 +6951,6 @@ Transform:
   - {fileID: 466307851}
   m_Father: {fileID: 2038677125}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2005489138
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2005489136}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 0
-  m_OverrideArea: 0
-  m_Area: 0
-  m_OverrideGenerateLinks: 0
-  m_GenerateLinks: 0
-  m_IgnoreFromBuild: 1
-  m_ApplyToChildren: 1
-  m_AffectedAgents: ffffffff
 --- !u!114 &2005489139
 MonoBehaviour:
   m_ObjectHideFlags: 0

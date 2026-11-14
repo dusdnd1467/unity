@@ -8,11 +8,8 @@ using Unity.MLAgents.Sensors;
 /// </summary>
 public class EnemyAgent : MazeAgentBase
 {
-    /// <summary>벡터 관측 크기: 플레이어가 낸 소리(4) = 총 4차원</summary>
-    public const int VectorObservationSize = 4;
-
-    /// <summary>플레이어 체포(충돌) 시 지급되는 승리 보상</summary>
-    private const float CatchReward = 1.0f;
+    /// <summary>벡터 관측 크기: 플레이어가 낸 소리(4) + 상자 운반 여부(1) = 총 5차원</summary>
+    public const int VectorObservationSize = 5;
 
     [Header("시야 감지 보상")]
     [Tooltip("에피소드 중 플레이어가 처음 시야 범위 내에 포착되었을 때 1회 부여할 보상")]
@@ -50,14 +47,18 @@ public class EnemyAgent : MazeAgentBase
     }
 
     /// <summary>
-    /// 적의 강화학습 벡터 관측(Vector Observation, 총 4차원)을 수집합니다.
+    /// 적의 강화학습 벡터 관측(Vector Observation, 총 5차원)을 수집합니다.
     /// 1. 플레이어가 낸 소리의 상대 위치 및 남은 시간 비율 (4차원)
+    /// 2. 상자 운반 여부 (1차원)
     /// </summary>
     /// <param name="sensor">관측 데이터를 기록할 벡터 센서</param>
     public override void CollectObservations(VectorSensor sensor)
     {
         // 1. 플레이어 소리 상대 위치(3차원) + 남은 시간 비율(1차원) (총 4차원)
         AddSoundObservation(sensor, SoundSource.Player);
+
+        // 2. 상자 운반 여부 (1차원: 0 또는 1)
+        AddBoxCarryObservation(sensor);
 
         // 참고: 플레이어, 벽 및 상자 상태(Box / LockedBox) 탐지는 머리에 장착된 3D RayPerceptionSensor로 수행됩니다.
     }

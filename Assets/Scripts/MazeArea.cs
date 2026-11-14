@@ -31,6 +31,33 @@ public class MazeArea : MonoBehaviour
     /// <summary>플레이어 체포 시 적에게 부여되는 승리 보상</summary>
     private const float EnemyCatchReward = 1.0f;
 
+    private const string WallLayerName = "Wall";
+    private static int? cachedWallLayerMask;
+    private static bool wallLayerMissingWarned;
+
+    /// <summary>시야선 및 벽 차폐 검사에 사용하는 Wall 전용 물리 레이어 마스크</summary>
+    public static int WallLayerMask
+    {
+        get
+        {
+            if (cachedWallLayerMask.HasValue) return cachedWallLayerMask.Value;
+
+            int layer = LayerMask.NameToLayer(WallLayerName);
+            if (layer < 0)
+            {
+                if (!wallLayerMissingWarned)
+                {
+                    wallLayerMissingWarned = true;
+                    Debug.LogWarning("[MazeArea] 'Wall' 레이어가 TagManager에 등록되어 있지 않습니다.");
+                }
+                return 0;
+            }
+
+            cachedWallLayerMask = 1 << layer;
+            return cachedWallLayerMask.Value;
+        }
+    }
+
     /// <summary>
     /// 발생한 소리의 위치 및 잔여 감지 시간 데이터를 관리하는 구조체
     /// </summary>
@@ -81,6 +108,12 @@ public class MazeArea : MonoBehaviour
     [Tooltip("학습 중인 적(술래) 에이전트")]
     public EnemyAgent enemy;
 
+    [Header("계층 컨테이너")]
+    [Tooltip("조작 가능한 상자(MovableBox)들을 담는 루트 컨테이너 (미지정 시 Cubes 탐색)")]
+    [SerializeField] private Transform boxesRoot;
+
+    [Tooltip("벽(Wall) 오브젝트들을 담는 루트 컨테이너 (미지정 시 Walls 탐색)")]
+    [SerializeField] private Transform wallsRoot;
 
     [Header("상호작용 객체")]
     [Tooltip("환경 내의 열쇠 아이템 목록")]
@@ -127,11 +160,11 @@ public class MazeArea : MonoBehaviour
 
 
     /// <summary>
-    /// 컴포넌트 로드 시 하위 에이전트 및 상호작용 객체들의 참조를 자동 연결합니다.
+    /// 컴포넌트 로드 시 하위 에이전트 및 상호작용 객체들을 런타임 초기화합니다.
     /// </summary>
     private void Awake()
     {
-        SetupReferences();
+        InitializeAreaRuntime();
     }
 
     /// <summary>
@@ -153,108 +186,118 @@ public class MazeArea : MonoBehaviour
     }
 
     /// <summary>
-    /// 플레이 모드와 에디터 모드 환경을 구분하여 안전하게 오브젝트를 파괴합니다.
+    /// 런타임 시작 시 이미 직렬화된 참조(또는 누락된 컴포넌트)만 안전하게 초기화합니다.
+    /// 씬 계층 수정이나 컴포넌트 동적 추가/삭제는 수행하지 않습니다.
     /// </summary>
-    /// <param name="obj">파괴할 오브젝트</param>
-    private static void SafeDestroy(Object obj)
+    private void InitializeAreaRuntime()
     {
-        if (obj == null) return;
-        if (Application.isPlaying) Destroy(obj);
-        else DestroyImmediate(obj);
-    }
+        ResolveContainerRoots();
 
-    /// <summary>
-    /// 하위 계층 구조를 탐색하여 에이전트, 상자, 열쇠, 문 컴포넌트를 캐싱하고 상호 초기화합니다.
-    /// </summary>
-    public void SetupReferences()
-    {
-        // 1. Cubes 컨테이너에 잘못 부착되었을 수 있는 컴포넌트 제거 (부모-자식 Rigidbody 중첩 방지)
-        Transform cubesContainer = transform.Find("Cubes");
-        if (cubesContainer != null)
-        {
-            var mb = cubesContainer.GetComponent<MovableBox>();
-            if (mb != null) SafeDestroy(mb);
-            var rb = cubesContainer.GetComponent<Rigidbody>();
-            if (rb != null) SafeDestroy(rb);
-            var col = cubesContainer.GetComponent<Collider>();
-            if (col != null) SafeDestroy(col);
-        }
-
-        // 2. 실제 개별 Cube 오브젝트에만 MovableBox 자동 등록
-        foreach (var child in GetComponentsInChildren<Transform>(true))
-        {
-            if (child == transform || child.name == "Cubes") continue;
-
-            if (child.name == "Cube" || child.name.StartsWith("Cube (") || child.CompareTag("Box") || child.CompareTag("LockedBox"))
-            {
-                if (child.GetComponent<MovableBox>() == null)
-                {
-                    child.gameObject.AddComponent<MovableBox>();
-                }
-            }
-        }
-
-        // 3. 조작 가능 상자 리스트 수집
-        boxes.Clear();
-        foreach (var box in GetComponentsInChildren<MovableBox>(true))
-        {
-            if (box.gameObject != gameObject && box.gameObject.name != "Cubes")
-            {
-                boxes.Add(box);
-            }
-        }
-
-        // 4. 에이전트 참조 확인
         if (player == null) player = GetComponentInChildren<PlayerAgent>(true);
         if (enemy == null) enemy = GetComponentInChildren<EnemyAgent>(true);
 
-        if (player != null) player.InitializeAgent(this);
-        if (enemy != null) enemy.InitializeAgent(this);
+        boxes.RemoveAll(box => box == null);
+        keys.RemoveAll(key => key == null);
+        doors.RemoveAll(door => door == null);
 
-        // 5. 열쇠 및 문 목록 갱신
+        if (boxes.Count == 0) CollectBoxes();
+        if (keys.Count == 0) keys.AddRange(GetComponentsInChildren<KeyItem>(true));
+        if (doors.Count == 0) doors.AddRange(GetComponentsInChildren<EscapeDoor>(true));
+
+        InitializeBoundObjects();
+        WarnIfManualControlsOverlap();
+    }
+
+    /// <summary>
+    /// 에디터 도구 및 컨텍스트 메뉴에서 호출하여 하위 에이전트, 상자, 열쇠, 문 참조를 재수집하고 벽 레이어/콜라이더를 동기화합니다.
+    /// </summary>
+    [ContextMenu("Setup References")]
+    public void SetupReferences()
+    {
+        ResolveContainerRoots();
+
+        CollectBoxes();
+
+        player = GetComponentInChildren<PlayerAgent>(true);
+        enemy = GetComponentInChildren<EnemyAgent>(true);
+
         keys.Clear();
         keys.AddRange(GetComponentsInChildren<KeyItem>(true));
 
         doors.Clear();
         doors.AddRange(GetComponentsInChildren<EscapeDoor>(true));
 
-        // 6. 개별 객체 초기화
-        for (int i = 0; i < keys.Count; i++) keys[i].Initialize(this);
-        for (int i = 0; i < doors.Count; i++) doors[i].Initialize(this);
-        for (int i = 0; i < boxes.Count; i++) boxes[i].Initialize(this);
-
+        InitializeBoundObjects();
         SyncWallColliders();
         WarnIfManualControlsOverlap();
     }
 
+    private void ResolveContainerRoots()
+    {
+        if (boxesRoot == null) boxesRoot = transform.Find("Cubes");
+        if (wallsRoot == null) wallsRoot = transform.Find("Walls");
+    }
+
+    private void CollectBoxes()
+    {
+        boxes.Clear();
+        Transform searchRoot = boxesRoot != null ? boxesRoot : transform;
+        foreach (var box in searchRoot.GetComponentsInChildren<MovableBox>(true))
+        {
+            if (box == null || box.transform == transform || box.transform == boxesRoot) continue;
+            boxes.Add(box);
+        }
+    }
+
+    private void InitializeBoundObjects()
+    {
+        if (player != null) player.InitializeAgent(this);
+        if (enemy != null) enemy.InitializeAgent(this);
+
+        for (int i = 0; i < keys.Count; i++)
+        {
+            if (keys[i] != null) keys[i].Initialize(this);
+        }
+        for (int i = 0; i < doors.Count; i++)
+        {
+            if (doors[i] != null) doors[i].Initialize(this);
+        }
+        for (int i = 0; i < boxes.Count; i++)
+        {
+            if (boxes[i] != null) boxes[i].Initialize(this);
+        }
+    }
+
     /// <summary>
-    /// 부모 Wall에 메시가 없고 자식 프리팹만 위치가 조정된 경우,
-    /// 허공에 남은 부모의 투명 BoxCollider를 비활성화하고 실제 자식 콜라이더에 Wall 태그를 부여합니다.
+    /// 부모 Wall에 메시가 없고 활성 자식 콜라이더만 존재하는 경우 허공에 남은 부모 콜라이더를 비활성화하고,
+    /// 모든 활성 벽 콜라이더에 Wall 태그 및 Wall 레이어를 동기화합니다.
     /// </summary>
     private void SyncWallColliders()
     {
-        Transform wallsRoot = transform.Find("Walls");
         if (wallsRoot == null) return;
+
+        int wallLayer = LayerMask.NameToLayer(WallLayerName);
 
         foreach (Transform wall in wallsRoot)
         {
-            if (wall == null || wall.childCount == 0) continue;
+            if (wall == null) continue;
+
+            if (wallLayer >= 0) wall.gameObject.layer = wallLayer;
+            if (!wall.gameObject.CompareTag("Wall")) wall.gameObject.tag = "Wall";
 
             MeshFilter mf = wall.GetComponent<MeshFilter>();
             Collider parentCol = wall.GetComponent<Collider>();
 
-            bool hasChildCollider = false;
+            bool hasActiveChildCollider = false;
             foreach (Collider col in wall.GetComponentsInChildren<Collider>(true))
             {
-                if (col == parentCol) continue;
-                hasChildCollider = true;
-                if (!col.gameObject.CompareTag("Wall"))
-                {
-                    col.gameObject.tag = "Wall";
-                }
+                if (col == parentCol || !col.enabled) continue;
+                hasActiveChildCollider = true;
+                if (wallLayer >= 0) col.gameObject.layer = wallLayer;
+                if (!col.gameObject.CompareTag("Wall")) col.gameObject.tag = "Wall";
             }
 
-            if (hasChildCollider && parentCol != null && (mf == null || mf.sharedMesh == null))
+            if (hasActiveChildCollider && parentCol != null && (mf == null || mf.sharedMesh == null))
             {
                 parentCol.enabled = false;
             }
@@ -320,7 +363,10 @@ public class MazeArea : MonoBehaviour
         playerSound.Clear();
         enemySound.Clear();
 
-        for (int i = 0; i < boxes.Count; i++) boxes[i].ResetBox();
+        for (int i = 0; i < boxes.Count; i++)
+        {
+            if (boxes[i] != null) boxes[i].ResetBox();
+        }
         ResetKeys();
 
         if (player != null) player.ResetPosition();
@@ -353,7 +399,7 @@ public class MazeArea : MonoBehaviour
     {
         for (int i = 0; i < keys.Count; i++)
         {
-            keys[i].ResetKey();
+            if (keys[i] != null) keys[i].ResetKey();
         }
     }
 
@@ -453,54 +499,6 @@ public class MazeArea : MonoBehaviour
             {
                 minDist = dist;
                 closest = box;
-            }
-        }
-        return closest;
-    }
-
-    /// <summary>
-    /// 지정된 위치에서 가장 가까운 활성 열쇠의 Transform을 반환합니다.
-    /// </summary>
-    /// <param name="fromPos">기준 위치</param>
-    /// <returns>가장 가까운 KeyItem의 Transform</returns>
-    public Transform GetClosestActiveKey(Vector3 fromPos)
-    {
-        return FindClosestTransform(keys, fromPos, key => key.gameObject.activeSelf);
-    }
-
-    /// <summary>
-    /// 지정된 위치에서 가장 가까운 탈출문의 Transform을 반환합니다.
-    /// </summary>
-    /// <param name="fromPos">기준 위치</param>
-    /// <returns>가장 가까운 EscapeDoor의 Transform</returns>
-    public Transform GetClosestDoor(Vector3 fromPos)
-    {
-        return FindClosestTransform(doors, fromPos);
-    }
-
-    /// <summary>
-    /// 컴포넌트 리스트 내에서 기준 좌표와 가장 가까운 유효 Transform을 검색하는 공통 헬퍼 메서드입니다.
-    /// </summary>
-    /// <typeparam name="T">Component 파생 타입</typeparam>
-    /// <param name="items">검색 대상 리스트</param>
-    /// <param name="fromPos">기준 위치</param>
-    /// <param name="filter">추가 필터링 조건 (선택 사항)</param>
-    /// <returns>최단 거리 Transform</returns>
-    private static Transform FindClosestTransform<T>(List<T> items, Vector3 fromPos, System.Predicate<T> filter = null) where T : Component
-    {
-        Transform closest = null;
-        float minDist = float.MaxValue;
-
-        for (int i = 0; i < items.Count; i++)
-        {
-            T item = items[i];
-            if (item == null || (filter != null && !filter(item))) continue;
-
-            float dist = Vector3.Distance(fromPos, item.transform.position);
-            if (dist < minDist)
-            {
-                minDist = dist;
-                closest = item.transform;
             }
         }
         return closest;

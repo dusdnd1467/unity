@@ -10,8 +10,8 @@ using Unity.MLAgents.Sensors;
 /// </summary>
 public class PlayerAgent : MazeAgentBase
 {
-    /// <summary>벡터 관측 크기: 열쇠 소지(1) + 적 소리(4) = 총 5차원</summary>
-    public const int VectorObservationSize = 5;
+    /// <summary>벡터 관측 크기: 열쇠 소지(1) + 적 소리(4) + 상자 운반 여부(1) = 총 6차원</summary>
+    public const int VectorObservationSize = 6;
 
     /// <summary>열쇠 획득 시 1회 부여되는 즉발 보상</summary>
     private const float KeyReward = 0.5f;
@@ -46,9 +46,10 @@ public class PlayerAgent : MazeAgentBase
     }
 
     /// <summary>
-    /// 플레이어의 강화학습 벡터 관측(Vector Observation, 총 5차원)을 수집합니다.
+    /// 플레이어의 강화학습 벡터 관측(Vector Observation, 총 6차원)을 수집합니다.
     /// 1. 열쇠 소지 여부 (1차원)
     /// 2. 적이 낸 소리의 상대 위치 및 남은 시간 비율 (4차원)
+    /// 3. 상자 운반 여부 (1차원)
     /// </summary>
     /// <param name="sensor">관측 데이터를 기록할 벡터 센서</param>
     public override void CollectObservations(VectorSensor sensor)
@@ -58,6 +59,9 @@ public class PlayerAgent : MazeAgentBase
 
         // 2. 적 소리 상대 위치(3차원) + 남은 시간 비율(1차원) (총 4차원)
         AddSoundObservation(sensor, SoundSource.Enemy);
+
+        // 3. 상자 운반 여부 (1차원: 0 또는 1)
+        AddBoxCarryObservation(sensor);
 
         // 참고: 문, 열쇠, 벽, 적 및 상자 상태(Box / LockedBox) 탐지는 머리에 장착된 3D RayPerceptionSensor로 수행됩니다.
     }

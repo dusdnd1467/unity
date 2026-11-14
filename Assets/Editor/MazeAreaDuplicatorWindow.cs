@@ -227,18 +227,6 @@ public class MazeAreaDuplicatorWindow : EditorWindow
             MazeArea cloneArea = cloneObj.GetComponent<MazeArea>();
             if (cloneArea != null)
             {
-                // 자식 오브젝트 참조 완벽 재연결
-                cloneArea.player = cloneObj.GetComponentInChildren<PlayerAgent>(true);
-                cloneArea.enemy = cloneObj.GetComponentInChildren<EnemyAgent>(true);
-
-                cloneArea.keys = new List<KeyItem>(cloneObj.GetComponentsInChildren<KeyItem>(true));
-                cloneArea.doors = new List<EscapeDoor>(cloneObj.GetComponentsInChildren<EscapeDoor>(true));
-                cloneArea.boxes = new List<MovableBox>();
-                foreach (var b in cloneObj.GetComponentsInChildren<MovableBox>(true))
-                {
-                    if (b.gameObject.name != "Cubes") cloneArea.boxes.Add(b);
-                }
-
                 cloneArea.SetupReferences();
                 EditorUtility.SetDirty(cloneArea);
             }

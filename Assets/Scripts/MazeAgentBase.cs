@@ -32,9 +32,6 @@ public abstract class MazeAgentBase : Agent
     /// <summary>방향키 조작 체계의 상자 상호작용 키 (Space, RightCtrl, Numpad0, Enter, U)</summary>
     private static readonly Key[] ArrowInteractKeys = { Key.Space, Key.RightCtrl, Key.Numpad0, Key.Enter, Key.U };
 
-    /// <summary>시야선(Raycast) 검사용 캐싱 배열 (가비지 컬렉션 방지)</summary>
-    private static readonly RaycastHit[] SightHits = new RaycastHit[16];
-
     [Header("이동 설정")]
     [Tooltip("에이전트 이동 속도")]
     public float moveSpeed = 5.0f;
@@ -43,6 +40,7 @@ public abstract class MazeAgentBase : Agent
     protected MazeArea area;
 
     private BehaviorParameters behaviorParameters;
+    private Collider[] cachedColliders;
     private Vector3 initialPosition;
     private Quaternion initialRotation;
     private bool initialPoseCaptured;
@@ -64,6 +62,12 @@ public abstract class MazeAgentBase : Agent
 
     /// <summary>상자 조작 시 발생하는 소리의 주체</summary>
     public SoundSource SoundSource => MySoundSource;
+
+    /// <summary>캐싱된 에이전트 콜라이더 배열 (물리 충돌 무시 전환 시 GC 할당 방지)</summary>
+    public Collider[] Colliders => cachedColliders;
+
+    /// <summary>현재 에이전트가 상자를 잡고 운반 중인지 여부</summary>
+    public bool IsCarryingBox => activeBox != null && activeBox.CurrentCarrier == gameObject;
 
     /// <summary>파생 클래스에서 정의하는 고유 소리 주체 (Player / Enemy)</summary>
     protected abstract SoundSource MySoundSource { get; }
@@ -117,6 +121,10 @@ public abstract class MazeAgentBase : Agent
 
         if (behaviorParameters == null) behaviorParameters = GetComponent<BehaviorParameters>();
         if (area == null) area = GetComponentInParent<MazeArea>();
+        if (cachedColliders == null || cachedColliders.Length == 0)
+        {
+            cachedColliders = GetComponentsInChildren<Collider>(true);
+        }
 
         // 시작 좌표와 회전은 최초 런타임에 1회만 확정 기록 (재초기화 시 덮어쓰기 방지)
         if (!initialPoseCaptured)
@@ -230,7 +238,7 @@ public abstract class MazeAgentBase : Agent
         if (actionType == BoxActionNone) return;
 
         // 1. 이미 상자를 운반 중인 경우: 상호작용 시 내려놓고 자동 잠금(Lock)
-        if (activeBox != null && activeBox.CurrentCarrier == gameObject)
+        if (IsCarryingBox)
         {
             ReleaseActiveBox();
             return;
@@ -238,7 +246,7 @@ public abstract class MazeAgentBase : Agent
 
         // 2. 가장 가까운 상자 탐색 및 사거리/시야선 검증
         MovableBox box = area.GetClosestBox(transform.position);
-        if (box == null || !box.IsInRange(transform.position, gameObject))
+        if (box == null || !box.IsInRange(transform.position))
         {
             // 범위를 벗어났으면 기존 채널링 취소
             if (activeBox != null && activeBox.CurrentUnlocker == gameObject)
@@ -296,22 +304,19 @@ public abstract class MazeAgentBase : Agent
 
         Vector3 origin = transform.position + Vector3.up * 0.5f;
         Vector3 targetPos = target.position + Vector3.up * 0.5f;
-        Vector3 dir = targetPos - origin;
-        float dist = dir.magnitude;
+        if ((targetPos - origin).sqrMagnitude > maxDistance * maxDistance) return false;
 
-        if (dist > maxDistance) return false;
+        // Wall 레이어만 대상으로 Linecast 1회 수행 (버퍼 크기 제한 및 불필요한 콜라이더 순회 제거)
+        return !Physics.Linecast(origin, targetPos, MazeArea.WallLayerMask, QueryTriggerInteraction.Ignore);
+    }
 
-        // 중간에 벽(Wall 태그)이 가로막고 있는지 RaycastNonAlloc으로 검사 (트리거 콜라이더 무시)
-        int hitCount = Physics.RaycastNonAlloc(origin, dir.normalized, SightHits, dist, ~0, QueryTriggerInteraction.Ignore);
-        for (int i = 0; i < hitCount; i++)
-        {
-            Collider col = SightHits[i].collider;
-            if (col.transform == target || col.transform.IsChildOf(target)) continue;
-            if (col.transform == transform || col.transform.IsChildOf(transform)) continue;
-            if (col.CompareTag("Wall")) return false;
-        }
-
-        return true;
+    /// <summary>
+    /// 에이전트가 현재 상자를 잡고 운반 중인지 여부(1차원)를 벡터 센서에 추가합니다.
+    /// </summary>
+    /// <param name="sensor">관측 데이터를 기록할 벡터 센서</param>
+    protected void AddBoxCarryObservation(VectorSensor sensor)
+    {
+        sensor.AddObservation(IsCarryingBox ? 1.0f : 0.0f);
     }
 
     /// <summary>

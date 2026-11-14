@@ -22,10 +22,12 @@ public class MovableBox : MonoBehaviour
     /// <summary>고정(잠금) 상태 상자의 태그 (RayPerceptionSensor가 시야로 식별)</summary>
     private const string LockedBoxTag = "LockedBox";
 
+    /// <summary>채널링 중 시각 효과(MaterialPropertyBlock)를 갱신할 진행도 변화 임계치</summary>
+    private const float VisualProgressThreshold = 0.05f;
+
     private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
     private static readonly int ColorId = Shader.PropertyToID("_Color");
     private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
-    private static readonly RaycastHit[] LineOfSightHits = new RaycastHit[16];
 
     [Header("상호작용 설정")]
     [Tooltip("고정된 상자를 해제하는 데 걸리는 시간 (초)")]
@@ -94,6 +96,7 @@ public class MovableBox : MonoBehaviour
     private float unlockSoundTimer;
     private float unlockAvailableTime;
     private float relockAvailableTime;
+    private float lastVisualUnlockNormalized = -1f;
 
     /// <summary>
     /// 컴포넌트 초기화 및 물리/콜라이더 설정을 구성합니다.
@@ -201,7 +204,7 @@ public class MovableBox : MonoBehaviour
         // 2. 잠금 해제 자동 채널링 진행 (1회 입력 시 자동 채널링 유지)
         if (isLocked && currentUnlocker != null)
         {
-            if (!currentUnlocker.activeInHierarchy || !IsInRange(currentUnlocker.transform.position, currentUnlocker))
+            if (!currentUnlocker.activeInHierarchy || !IsInRange(currentUnlocker.transform.position))
             {
                 CancelChannelUnlock();
             }
@@ -211,7 +214,7 @@ public class MovableBox : MonoBehaviour
                 unlockSoundTimer -= Time.fixedDeltaTime;
                 if (unlockSoundTimer <= 0f)
                 {
-                    area.EmitSound(transform.position, unlockerSource, "BoxUnlockChanneling");
+                    if (area != null) area.EmitSound(transform.position, unlockerSource, "BoxUnlockChanneling");
                     unlockSoundTimer = UnlockSoundInterval;
                 }
 
@@ -221,7 +224,7 @@ public class MovableBox : MonoBehaviour
                 }
                 else
                 {
-                    UpdateVisualState();
+                    UpdateVisualStateIfChanged();
                 }
             }
         }
@@ -236,8 +239,11 @@ public class MovableBox : MonoBehaviour
         CancelChannelUnlock();
 
         // 에피소드 리셋 시 남아있을 수 있는 에이전트 간의 충돌 무시 상태 완벽 해제
-        if (area.player != null) SetIgnoreCollision(area.player.gameObject, false);
-        if (area.enemy != null) SetIgnoreCollision(area.enemy.gameObject, false);
+        if (area != null)
+        {
+            if (area.player != null) SetIgnoreCollision(area.player.gameObject, false);
+            if (area.enemy != null) SetIgnoreCollision(area.enemy.gameObject, false);
+        }
 
         isLocked = startLocked;
         lockedBy = SoundSource.None;
@@ -268,12 +274,11 @@ public class MovableBox : MonoBehaviour
     }
 
     /// <summary>
-    /// 에이전트와 상자 사이에 벽(Wall 태그) 장애물이 가로막고 있는지 검사합니다.
+    /// 에이전트와 상자 사이에 벽(Wall 레이어) 장애물이 가로막고 있는지 검사합니다.
     /// </summary>
     /// <param name="actorPosition">에이전트 위치</param>
-    /// <param name="actor">에이전트 오브젝트 (자체 콜라이더 무시용)</param>
     /// <returns>벽으로 가려지지 않았으면 true</returns>
-    public bool HasLineOfSight(Vector3 actorPosition, GameObject actor = null)
+    public bool HasLineOfSight(Vector3 actorPosition)
     {
         Vector3 origin = actorPosition + Vector3.up * 0.5f;
         Vector3 targetPoint = boxCollider.ClosestPoint(origin);
@@ -283,30 +288,19 @@ public class MovableBox : MonoBehaviour
         float dist = rayDir.magnitude;
         if (dist <= 0.15f) return true;
 
-        int hitCount = Physics.RaycastNonAlloc(origin, rayDir / dist, LineOfSightHits,
-            Mathf.Max(0.01f, dist - 0.05f), ~0, QueryTriggerInteraction.Ignore);
-
-        for (int i = 0; i < hitCount; i++)
-        {
-            Collider col = LineOfSightHits[i].collider;
-            if (col == boxCollider || col.transform.IsChildOf(transform)) continue;
-            if (actor != null && col.transform.IsChildOf(actor.transform)) continue;
-            if (col.GetComponent<MovableBox>() != null) continue;
-
-            if (col.CompareTag("Wall")) return false;
-        }
-        return true;
+        // 상자가 벽에 밀착된 경우를 고려해 표면 직전(dist - 0.05f)까지만 Wall 레이어 Linecast 검사
+        Vector3 endPoint = origin + (rayDir / dist) * Mathf.Max(0.01f, dist - 0.05f);
+        return !Physics.Linecast(origin, endPoint, MazeArea.WallLayerMask, QueryTriggerInteraction.Ignore);
     }
 
     /// <summary>
     /// 에이전트가 상호작용 사거리(2.5m) 이내에 있고 벽에 가려지지 않았는지 검사합니다.
     /// </summary>
     /// <param name="actorPosition">에이전트 위치</param>
-    /// <param name="actor">에이전트 게임 오브젝트</param>
     /// <returns>상호작용 가능 범위 내이면 true</returns>
-    public bool IsInRange(Vector3 actorPosition, GameObject actor = null)
+    public bool IsInRange(Vector3 actorPosition)
     {
-        return GetSurfaceDistance(actorPosition) <= interactionDistance && HasLineOfSight(actorPosition, actor);
+        return GetSurfaceDistance(actorPosition) <= interactionDistance && HasLineOfSight(actorPosition);
     }
 
     /// <summary>
@@ -317,7 +311,7 @@ public class MovableBox : MonoBehaviour
     public bool TryGrab(GameObject actor)
     {
         if (actor == null || isLocked || (currentCarrier != null && currentCarrier != actor)) return false;
-        if (!IsInRange(actor.transform.position, actor)) return false;
+        if (!IsInRange(actor.transform.position)) return false;
         if (currentCarrier == actor) return true;
 
         currentCarrier = actor;
@@ -327,10 +321,7 @@ public class MovableBox : MonoBehaviour
         SetIgnoreCollision(actor, true);
         UpdateVisualState();
 
-        SoundSource source = SoundSource.None;
-        var agent = actor.GetComponent<MazeAgentBase>();
-        if (agent != null) source = agent.SoundSource;
-        area.EmitSound(transform.position, source, "BoxGrab");
+        EmitSoundIfPossible(GetActorSoundSource(actor), "BoxGrab");
 
         return true;
     }
@@ -361,10 +352,7 @@ public class MovableBox : MonoBehaviour
 
         if (autoLock && !isLocked)
         {
-            SoundSource source = SoundSource.None;
-            var agent = carrier.GetComponent<MazeAgentBase>();
-            if (agent != null) source = agent.SoundSource;
-            TryLock(carrier, source, skipDistanceCheck: true, skipCooldown: true);
+            TryLock(carrier, GetActorSoundSource(carrier), skipDistanceCheck: true, skipCooldown: true);
         }
     }
 
@@ -379,8 +367,8 @@ public class MovableBox : MonoBehaviour
     public bool TryLock(GameObject actor, SoundSource source, bool skipDistanceCheck = false, bool skipCooldown = false)
     {
         if (actor == null || isLocked) return false;
-        if (!skipDistanceCheck && !IsInRange(actor.transform.position, actor)) return false;
-        if (!skipCooldown && Time.time < relockAvailableTime) return false;
+        if (!skipDistanceCheck && !IsInRange(actor.transform.position)) return false;
+        if (!skipCooldown && Time.fixedTime < relockAvailableTime) return false;
 
         if (currentCarrier != null)
         {
@@ -390,9 +378,9 @@ public class MovableBox : MonoBehaviour
 
         isLocked = true;
         lockedBy = source;
-        unlockAvailableTime = Time.time + unlockCooldown;
+        unlockAvailableTime = Time.fixedTime + unlockCooldown;
 
-        area.EmitSound(transform.position, source, "BoxLock");
+        EmitSoundIfPossible(source, "BoxLock");
 
         UpdateBoxTag();
         UpdateVisualState();
@@ -408,8 +396,8 @@ public class MovableBox : MonoBehaviour
     public bool StartChannelUnlock(GameObject actor, SoundSource source)
     {
         if (actor == null || !isLocked) return false;
-        if (Time.time < unlockAvailableTime) return false;
-        if (!IsInRange(actor.transform.position, actor)) return false;
+        if (Time.fixedTime < unlockAvailableTime) return false;
+        if (!IsInRange(actor.transform.position)) return false;
         if (currentUnlocker != null && currentUnlocker != actor) return false;
 
         if (currentUnlocker == actor) return true; // 이미 채널링 중
@@ -419,7 +407,7 @@ public class MovableBox : MonoBehaviour
         unlockProgress = 0f;
         unlockSoundTimer = 0f;
 
-        area.EmitSound(transform.position, source, "BoxUnlockStart");
+        EmitSoundIfPossible(source, "BoxUnlockStart");
         UpdateVisualState();
         return true;
     }
@@ -436,9 +424,9 @@ public class MovableBox : MonoBehaviour
         unlockerSource = SoundSource.None;
         unlockProgress = 0f;
         currentUnlocker = null;
-        relockAvailableTime = Time.time + relockCooldown;
+        relockAvailableTime = Time.fixedTime + relockCooldown;
 
-        area.EmitSound(transform.position, finishedSource, "BoxUnlockComplete");
+        EmitSoundIfPossible(finishedSource, "BoxUnlockComplete");
 
         UpdateBoxTag();
         UpdateVisualState();
@@ -468,9 +456,38 @@ public class MovableBox : MonoBehaviour
     {
         if (actor == null) return;
 
-        foreach (Collider actorCollider in actor.GetComponentsInChildren<Collider>())
+        Collider[] actorColliders = actor.TryGetComponent<MazeAgentBase>(out var agent) && agent.Colliders != null
+            ? agent.Colliders
+            : actor.GetComponentsInChildren<Collider>(true);
+
+        for (int i = 0; i < actorColliders.Length; i++)
         {
-            Physics.IgnoreCollision(actorCollider, boxCollider, ignore);
+            Collider actorCollider = actorColliders[i];
+            if (actorCollider != null)
+            {
+                Physics.IgnoreCollision(actorCollider, boxCollider, ignore);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 에이전트 오브젝트에서 소리 주체(SoundSource)를 안전하게 조회합니다.
+    /// </summary>
+    private static SoundSource GetActorSoundSource(GameObject actor)
+    {
+        return actor != null && actor.TryGetComponent<MazeAgentBase>(out var agent)
+            ? agent.SoundSource
+            : SoundSource.None;
+    }
+
+    /// <summary>
+    /// 소속 MazeArea가 할당되어 있을 때만 사운드 이벤트를 전파합니다.
+    /// </summary>
+    private void EmitSoundIfPossible(SoundSource source, string reason)
+    {
+        if (area != null)
+        {
+            area.EmitSound(transform.position, source, reason);
         }
     }
 
@@ -491,25 +508,15 @@ public class MovableBox : MonoBehaviour
     }
 
     /// <summary>
-    /// 현재 상자 상태에 따른 발광(Emission) 색상을 계산합니다.
+    /// 채널링 진행 중 색상 변화량이 임계치 이상일 때만 MaterialPropertyBlock을 갱신합니다.
     /// </summary>
-    /// <returns>적용할 이미션 색상</returns>
-    private Color GetCurrentEmissionColor()
+    private void UpdateVisualStateIfChanged()
     {
-        if (isLocked)
+        float currentNormalized = UnlockNormalized;
+        if (lastVisualUnlockNormalized < 0f || Mathf.Abs(currentNormalized - lastVisualUnlockNormalized) >= VisualProgressThreshold)
         {
-            Color c = (currentUnlocker != null && unlockProgress > 0f)
-                ? Color.Lerp(lockedColor, unlockingColor, UnlockNormalized)
-                : lockedColor;
-            return c * 0.45f;
+            UpdateVisualState();
         }
-
-        if (currentCarrier != null)
-        {
-            return grabbedColor * 0.45f;
-        }
-
-        return Color.black;
     }
 
     /// <summary>
@@ -517,6 +524,8 @@ public class MovableBox : MonoBehaviour
     /// </summary>
     private void UpdateVisualState()
     {
+        lastVisualUnlockNormalized = (isLocked && currentUnlocker != null) ? UnlockNormalized : -1f;
+
         if (visualRenderers == null || visualRenderers.Length == 0)
         {
             CacheRenderers();
@@ -526,7 +535,7 @@ public class MovableBox : MonoBehaviour
         if (propBlock == null) propBlock = new MaterialPropertyBlock();
 
         Color targetColor = GetCurrentColor();
-        Color emissionColor = GetCurrentEmissionColor();
+        Color emissionColor = (isLocked || currentCarrier != null) ? targetColor * 0.45f : Color.black;
 
         for (int i = 0; i < visualRenderers.Length; i++)
         {
