@@ -111,6 +111,3 @@ InitTestScene*.unity*
 
 # Local ML-Agents clone (packages are referenced via Git URL)
 /ml-agents/
-
-# ML-Agents training outputs and checkpoints
-/results/
