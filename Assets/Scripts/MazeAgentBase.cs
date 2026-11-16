@@ -18,7 +18,7 @@ public abstract class MazeAgentBase : Agent
     protected const float ObservationPositionScale = 0.05f;
 
     /// <summary>타임스텝 페널티 (에이전트가 목표 달성을 지연하지 않고 빠르게 행동하도록 유도)</summary>
-    protected const float DefaultTimeStepPenalty = -0.0005f;
+    protected const float DefaultTimeStepPenalty = -0.00005f;
 
     /// <summary>상자 상호작용 액션: 현재 상태 유지</summary>
     private const int BoxActionNone = 0;
@@ -180,7 +180,7 @@ public abstract class MazeAgentBase : Agent
 
     /// <summary>
     /// 연속 액션(ContinuousActions: X, Z)을 물리적 속도(linearVelocity)로 변환하여 적용합니다.
-    /// 이동 방향으로 캐릭터 회전을 업데이트하며, 상자 잠금 해제 채널링 중에는 제자리 정지합니다.
+    /// 상자 잠금 해제 채널링 중에는 제자리 정지합니다.
     /// </summary>
     /// <param name="actions">액션 버퍼</param>
     private void ApplyMovement(ActionBuffers actions)
@@ -190,12 +190,6 @@ public abstract class MazeAgentBase : Agent
         var continuous = actions.ContinuousActions;
         Vector3 moveInput = new Vector3(continuous[0], 0f, continuous[1]);
         if (moveInput.sqrMagnitude > 1f) moveInput.Normalize();
-
-        // 이동 입력이 있을 경우 전방(Forward) 회전 업데이트
-        if (moveInput.sqrMagnitude > 0.001f)
-        {
-            transform.forward = moveInput;
-        }
 
         // 상자 잠금 해제 중에는 움직이지 못하도록 속도 0 적용
         float speed = IsChannelingBox() ? 0f : moveSpeed;
