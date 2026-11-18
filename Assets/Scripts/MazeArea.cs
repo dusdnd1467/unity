@@ -13,6 +13,37 @@ public enum SoundSource
 }
 
 /// <summary>
+/// 런타임 최초 1회 초기 위치/회전을 기록하고 리셋 시 복원하는 경량 스냅샷입니다.
+/// </summary>
+public struct InitialPose
+{
+    private Vector3 position;
+    private Quaternion rotation;
+    private bool captured;
+
+    public Vector3 Position => position;
+
+    public void CaptureOnce(Transform target)
+    {
+        if (captured || target == null) return;
+        position = target.position;
+        rotation = target.rotation;
+        if (Application.isPlaying) captured = true;
+    }
+
+    public void Restore(Transform target, Rigidbody rb = null)
+    {
+        if (target == null) return;
+        if (rb != null)
+        {
+            rb.position = position;
+            rb.rotation = rotation;
+        }
+        target.SetPositionAndRotation(position, rotation);
+    }
+}
+
+/// <summary>
 /// 미로 술래잡기 환경 매니저:
 /// 에이전트(PlayerAgent, EnemyAgent), 상호작용 객체(KeyItem, EscapeDoor, MovableBox)를 등록 및 관리하며,
 /// 양방향 소리 전파 및 에피소드 종료/리셋을 통합 제어합니다.
@@ -129,55 +160,28 @@ public class MazeArea : MonoBehaviour
     [Tooltip("발생한 소리가 에이전트에 의해 감지 가능한 지속 시간 (초)")]
     public float soundDuration = 3.0f;
 
-    // 플레이어가 낸 소리 (적이 감지)
+    // 플레이어 / 적 소리 이벤트 (상대방이 감지)
     private SoundEvent playerSound;
-
-    /// <summary>플레이어가 낸 소리의 현재 위치</summary>
-    public Vector3 PlayerSoundPosition => playerSound.Position;
-
-    /// <summary>플레이어가 낸 소리의 남은 지속 시간</summary>
-    public float PlayerSoundTimer => playerSound.Timer;
-
-    // 적이 낸 소리 (플레이어가 감지)
     private SoundEvent enemySound;
-
-    /// <summary>적이 낸 소리의 현재 위치</summary>
-    public Vector3 EnemySoundPosition => enemySound.Position;
-
-    /// <summary>적이 낸 소리의 남은 지속 시간</summary>
-    public float EnemySoundTimer => enemySound.Timer;
 
     // 중복 에피소드 종료 방지용 프레임 카운터
     private int fixedFrameCount;
     private int lastEpisodeEndFrame = -1;
     private bool suppressAreaReset;
 
-    /// <summary>현재 활성화된 유효 플레이어 에이전트</summary>
     private PlayerAgent ActivePlayer => player != null && player.isActiveAndEnabled ? player : null;
-
-    /// <summary>현재 활성화된 유효 적 에이전트</summary>
     private EnemyAgent ActiveEnemy => enemy != null && enemy.isActiveAndEnabled ? enemy : null;
 
-
-    /// <summary>
-    /// 컴포넌트 로드 시 하위 에이전트 및 상호작용 객체들을 런타임 초기화합니다.
-    /// </summary>
     private void Awake()
     {
-        InitializeAreaRuntime();
+        CollectReferences(onlyIfMissing: true);
     }
 
-    /// <summary>
-    /// 게임 시작 시 환경 전체를 초기 에피소드 상태로 리셋합니다.
-    /// </summary>
     private void Start()
     {
         ResetArea();
     }
 
-    /// <summary>
-    /// 물리 틱마다 프레임 카운터를 갱신하고 활성 소리 타이머를 감산합니다.
-    /// </summary>
     private void FixedUpdate()
     {
         fixedFrameCount++;
@@ -186,49 +190,42 @@ public class MazeArea : MonoBehaviour
     }
 
     /// <summary>
-    /// 런타임 시작 시 이미 직렬화된 참조(또는 누락된 컴포넌트)만 안전하게 초기화합니다.
-    /// 씬 계층 수정이나 컴포넌트 동적 추가/삭제는 수행하지 않습니다.
-    /// </summary>
-    private void InitializeAreaRuntime()
-    {
-        ResolveContainerRoots();
-
-        if (player == null) player = GetComponentInChildren<PlayerAgent>(true);
-        if (enemy == null) enemy = GetComponentInChildren<EnemyAgent>(true);
-
-        boxes.RemoveAll(box => box == null);
-        keys.RemoveAll(key => key == null);
-        doors.RemoveAll(door => door == null);
-
-        if (boxes.Count == 0) CollectBoxes();
-        if (keys.Count == 0) keys.AddRange(GetComponentsInChildren<KeyItem>(true));
-        if (doors.Count == 0) doors.AddRange(GetComponentsInChildren<EscapeDoor>(true));
-
-        InitializeBoundObjects();
-        WarnIfManualControlsOverlap();
-    }
-
-    /// <summary>
     /// 에디터 도구 및 컨텍스트 메뉴에서 호출하여 하위 에이전트, 상자, 열쇠, 문 참조를 재수집하고 벽 레이어/콜라이더를 동기화합니다.
     /// </summary>
     [ContextMenu("Setup References")]
     public void SetupReferences()
     {
+        CollectReferences(onlyIfMissing: false);
+        SyncWallColliders();
+    }
+
+    private void CollectReferences(bool onlyIfMissing)
+    {
         ResolveContainerRoots();
 
-        CollectBoxes();
+        if (!onlyIfMissing || player == null) player = GetComponentInChildren<PlayerAgent>(true);
+        if (!onlyIfMissing || enemy == null) enemy = GetComponentInChildren<EnemyAgent>(true);
 
-        player = GetComponentInChildren<PlayerAgent>(true);
-        enemy = GetComponentInChildren<EnemyAgent>(true);
+        if (onlyIfMissing)
+        {
+            boxes.RemoveAll(box => box == null);
+            keys.RemoveAll(key => key == null);
+            doors.RemoveAll(door => door == null);
+        }
 
-        keys.Clear();
-        keys.AddRange(GetComponentsInChildren<KeyItem>(true));
-
-        doors.Clear();
-        doors.AddRange(GetComponentsInChildren<EscapeDoor>(true));
+        if (!onlyIfMissing || boxes.Count == 0) CollectBoxes();
+        if (!onlyIfMissing || keys.Count == 0)
+        {
+            keys.Clear();
+            keys.AddRange(GetComponentsInChildren<KeyItem>(true));
+        }
+        if (!onlyIfMissing || doors.Count == 0)
+        {
+            doors.Clear();
+            doors.AddRange(GetComponentsInChildren<EscapeDoor>(true));
+        }
 
         InitializeBoundObjects();
-        SyncWallColliders();
         WarnIfManualControlsOverlap();
     }
 
@@ -329,30 +326,26 @@ public class MazeArea : MonoBehaviour
 
     /// <summary>
     /// 에이전트 중 하나가 MaxStep 도달 등의 사유로 개별 리셋(OnEpisodeBegin)을 시작했을 때,
-    /// 반대편 에이전트도 EpisodeInterrupted 처리하여 전체 환경을 완벽하게 동기화 리셋합니다.
+    /// 반대편 에이전트도 EpisodeInterrupted 처리하여 전체 환경을 동기화 리셋합니다.
     /// </summary>
-    /// <param name="agent">리셋을 시작한 에이전트</param>
     public void OnAgentEpisodeBegin(MazeAgentBase agent)
     {
         if (suppressAreaReset) return;
-        if (lastEpisodeEndFrame == fixedFrameCount) return;
-        lastEpisodeEndFrame = fixedFrameCount;
 
-        suppressAreaReset = true;
-        var activePlayer = ActivePlayer;
-        var activeEnemy = ActiveEnemy;
-
-        if (agent == activePlayer && activeEnemy != null)
+        RunSynchronizedReset(() =>
         {
-            activeEnemy.EpisodeInterrupted();
-        }
-        else if (agent == activeEnemy && activePlayer != null)
-        {
-            activePlayer.EpisodeInterrupted();
-        }
-        suppressAreaReset = false;
+            var activePlayer = ActivePlayer;
+            var activeEnemy = ActiveEnemy;
 
-        ResetAreaInternal();
+            if (agent == activePlayer && activeEnemy != null)
+            {
+                activeEnemy.EpisodeInterrupted();
+            }
+            else if (agent == activeEnemy && activePlayer != null)
+            {
+                activePlayer.EpisodeInterrupted();
+            }
+        });
     }
 
     /// <summary>
@@ -376,9 +369,6 @@ public class MazeArea : MonoBehaviour
     /// <summary>
     /// 지정된 위치에 소리를 등록하여 상대편 에이전트에게 전파합니다.
     /// </summary>
-    /// <param name="position">소리 발생 월드 좌표</param>
-    /// <param name="source">소리를 발생시킨 주체 (Player / Enemy)</param>
-    /// <param name="reason">소리 발생 사유 (디버그 및 AI 알림용)</param>
     public void EmitSound(Vector3 position, SoundSource source, string reason = "")
     {
         if (source == SoundSource.Player)
@@ -389,6 +379,20 @@ public class MazeArea : MonoBehaviour
         {
             enemySound.Start(position, soundDuration);
         }
+    }
+
+    /// <summary>
+    /// 지정된 주체의 활성 소리 위치와 잔여 시간을 조회합니다.
+    /// </summary>
+    public bool TryGetSound(SoundSource source, out Vector3 position, out float remaining)
+    {
+        SoundEvent sound = source == SoundSource.Player ? playerSound
+            : source == SoundSource.Enemy ? enemySound
+            : default;
+
+        position = sound.Position;
+        remaining = sound.Timer;
+        return remaining > 0f;
     }
 
     /// <summary>
@@ -405,8 +409,6 @@ public class MazeArea : MonoBehaviour
     /// <summary>
     /// 플레이어가 열쇠를 획득하려고 시도합니다. 이미 열쇠를 소지 중이면 거부됩니다.
     /// </summary>
-    /// <param name="position">열쇠 위치</param>
-    /// <returns>획득 성공 여부</returns>
     public bool TryCollectKey(Vector3 position)
     {
         var activePlayer = ActivePlayer;
@@ -420,8 +422,6 @@ public class MazeArea : MonoBehaviour
     /// <summary>
     /// 주어진 오브젝트가 열쇠를 소지한 유효한 플레이어(PlayerAgent)인지 검사합니다.
     /// </summary>
-    /// <param name="actor">검사할 대상 게임 오브젝트</param>
-    /// <returns>열쇠 소지 플레이어이면 true</returns>
     public bool ActorHasKey(GameObject actor)
     {
         if (actor == null) return false;
@@ -433,10 +433,10 @@ public class MazeArea : MonoBehaviour
     /// <summary>
     /// 현재 활성 플레이어의 Transform을 반환합니다.
     /// </summary>
-    /// <returns>플레이어 Transform</returns>
     public Transform GetPlayerTransform()
     {
-        return player != null ? player.transform : null;
+        var activePlayer = ActivePlayer;
+        return activePlayer != null ? activePlayer.transform : null;
     }
 
     /// <summary>
@@ -449,31 +449,34 @@ public class MazeArea : MonoBehaviour
     /// </summary>
     public void EndEpisodeByCatch() => FinishEpisode(PlayerCaughtPenalty, EnemyCatchReward);
 
-    /// <summary>
-    /// 승패 보상을 지급하고 양쪽 에이전트의 에피소드를 안전하게 종료한 뒤 환경을 리셋합니다.
-    /// 동일 물리 프레임 내의 중복 호출을 차단합니다.
-    /// </summary>
-    /// <param name="playerReward">플레이어에게 지급할 보상</param>
-    /// <param name="enemyReward">적에게 지급할 보상</param>
     private void FinishEpisode(float playerReward, float enemyReward)
+    {
+        RunSynchronizedReset(() =>
+        {
+            var activePlayer = ActivePlayer;
+            var activeEnemy = ActiveEnemy;
+
+            if (activePlayer != null)
+            {
+                activePlayer.AddReward(playerReward);
+                activePlayer.EndEpisode();
+            }
+            if (activeEnemy != null)
+            {
+                activeEnemy.AddReward(enemyReward);
+                activeEnemy.EndEpisode();
+            }
+        });
+    }
+
+    private void RunSynchronizedReset(System.Action endAgentsAction)
     {
         if (lastEpisodeEndFrame == fixedFrameCount) return;
         lastEpisodeEndFrame = fixedFrameCount;
 
-        var activePlayer = ActivePlayer;
-        var activeEnemy = ActiveEnemy;
-
+        // EndEpisode/EpisodeInterrupted가 재귀적으로 OnAgentEpisodeBegin을 다시 부르는 것을 방지
         suppressAreaReset = true;
-        if (activePlayer != null)
-        {
-            activePlayer.AddReward(playerReward);
-            activePlayer.EndEpisode();
-        }
-        if (activeEnemy != null)
-        {
-            activeEnemy.AddReward(enemyReward);
-            activeEnemy.EndEpisode();
-        }
+        endAgentsAction?.Invoke();
         suppressAreaReset = false;
 
         ResetAreaInternal();

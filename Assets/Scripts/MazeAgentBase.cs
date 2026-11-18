@@ -36,14 +36,19 @@ public abstract class MazeAgentBase : Agent
     [Tooltip("에이전트 이동 속도")]
     public float moveSpeed = 5.0f;
 
+    [Header("수동 조작 (Heuristic)")]
+    [Tooltip("WASD 키로 수동 조작 여부")]
+    public bool useWasd;
+
+    [Tooltip("방향키(Arrow)로 수동 조작 여부")]
+    public bool useArrows;
+
     protected Rigidbody rb;
     protected MazeArea area;
 
     private BehaviorParameters behaviorParameters;
     private Collider[] cachedColliders;
-    private Vector3 initialPosition;
-    private Quaternion initialRotation;
-    private bool initialPoseCaptured;
+    private InitialPose initialPose;
 
     /// <summary>현재 에이전트가 잡고 있거나 잠금 해제 채널링 중인 상자</summary>
     private MovableBox activeBox;
@@ -54,11 +59,8 @@ public abstract class MazeAgentBase : Agent
     /// <summary>강화학습 정책의 이전 상자 액션 (0->1 변경 순간인 Rising Edge 감지용)</summary>
     private int lastPolicyBoxAction;
 
-    /// <summary>WASD 수동 조작 사용 여부</summary>
-    public abstract bool UseWasd { get; }
-
-    /// <summary>방향키 수동 조작 사용 여부</summary>
-    public abstract bool UseArrows { get; }
+    public bool UseWasd => useWasd;
+    public bool UseArrows => useArrows;
 
     /// <summary>상자 조작 시 발생하는 소리의 주체</summary>
     public SoundSource SoundSource => MySoundSource;
@@ -127,17 +129,9 @@ public abstract class MazeAgentBase : Agent
         }
 
         // 시작 좌표와 회전은 최초 런타임에 1회만 확정 기록 (재초기화 시 덮어쓰기 방지)
-        if (!initialPoseCaptured)
-        {
-            initialPosition = transform.position;
-            initialRotation = transform.rotation;
-            if (Application.isPlaying) initialPoseCaptured = true;
-        }
+        initialPose.CaptureOnce(transform);
     }
 
-    /// <summary>
-    /// 에피소드 시작 시 호출되며, MazeArea를 통해 전체 환경의 동기화 리셋을 요청합니다.
-    /// </summary>
     public override void OnEpisodeBegin()
     {
         area.OnAgentEpisodeBegin(this);
@@ -159,9 +153,7 @@ public abstract class MazeAgentBase : Agent
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
         }
-        rb.position = initialPosition;
-        rb.rotation = initialRotation;
-        transform.SetPositionAndRotation(initialPosition, initialRotation);
+        initialPose.Restore(transform, rb);
     }
 
     // ───────────────────────────── 액션 실행 파이프라인 ─────────────────────────────
@@ -224,12 +216,9 @@ public abstract class MazeAgentBase : Agent
         return effective;
     }
 
-    /// <summary>
-    /// 상자 상호작용 액션 타입에 따라 운반 중단/잠금, 신규 운반, 채널링 잠금 해제를 수행합니다.
-    /// </summary>
-    /// <param name="actionType">실행할 상자 액션 타입</param>
     private void HandleBoxInteraction(int actionType)
     {
+        RefreshActiveBox();
         if (actionType == BoxActionNone) return;
 
         // 1. 이미 상자를 운반 중인 경우: 상호작용 시 내려놓고 자동 잠금(Lock)
@@ -243,31 +232,31 @@ public abstract class MazeAgentBase : Agent
         MovableBox box = area.GetClosestBox(transform.position);
         if (box == null || !box.IsInRange(transform.position))
         {
-            // 범위를 벗어났으면 기존 채널링 취소
-            if (activeBox != null && activeBox.CurrentUnlocker == gameObject)
-            {
-                activeBox.CancelChannelUnlock(gameObject);
-            }
-            activeBox = null;
+            ReleaseActiveBox();
             return;
         }
 
         activeBox = box;
 
-        // 3. 잠기지 않은 상자: 잡아서 운반(Grab) 시작
+        // 3. 잠기지 않은 상자: 잡아서 운반(Grab) 시작 / 잠긴 상자: 자동 채널링 잠금 해제 시작
         if (!box.IsLocked)
         {
             box.TryGrab(gameObject);
-            return;
         }
-
-        // 4. 잠긴 상자: 1회 탭 시 즉시 자동 채널링 잠금 해제 모드로 진입
-        box.StartChannelUnlock(gameObject, MySoundSource);
+        else
+        {
+            box.StartChannelUnlock(gameObject, MySoundSource);
+        }
     }
 
-    /// <summary>
-    /// 현재 조작 중인 상자의 운반 및 잠금 해제 채널링을 안전하게 중단하고 참조를 해제합니다.
-    /// </summary>
+    private void RefreshActiveBox()
+    {
+        if (activeBox != null && activeBox.CurrentCarrier != gameObject && activeBox.CurrentUnlocker != gameObject)
+        {
+            activeBox = null;
+        }
+    }
+
     private void ReleaseActiveBox()
     {
         if (activeBox == null) return;
@@ -276,10 +265,6 @@ public abstract class MazeAgentBase : Agent
         activeBox = null;
     }
 
-    /// <summary>
-    /// 현재 에이전트가 상자를 잠금 해제하기 위해 제자리 채널링 중인지 여부를 반환합니다.
-    /// </summary>
-    /// <returns>채널링 중이면 true</returns>
     private bool IsChannelingBox()
     {
         return activeBox != null && activeBox.IsLocked && activeBox.CurrentUnlocker == gameObject;
@@ -317,25 +302,9 @@ public abstract class MazeAgentBase : Agent
     /// <summary>
     /// 상대방이 낸 소리 정보를 센서에 추가합니다. (상대 위치 3차원 + 잔여 시간 비율 1차원 = 총 4차원)
     /// </summary>
-    /// <param name="sensor">관측 데이터를 기록할 벡터 센서</param>
-    /// <param name="heardSource">듣고자 하는 상대 소리 주체</param>
     protected void AddSoundObservation(VectorSensor sensor, SoundSource heardSource)
     {
-        Vector3 soundPos = Vector3.zero;
-        float remaining = 0f;
-
-        if (heardSource == SoundSource.Player)
-        {
-            soundPos = area.PlayerSoundPosition;
-            remaining = area.PlayerSoundTimer;
-        }
-        else if (heardSource == SoundSource.Enemy)
-        {
-            soundPos = area.EnemySoundPosition;
-            remaining = area.EnemySoundTimer;
-        }
-
-        if (remaining > 0f)
+        if (area.TryGetSound(heardSource, out Vector3 soundPos, out float remaining))
         {
             sensor.AddObservation((soundPos - transform.position) * ObservationPositionScale);
             sensor.AddObservation(remaining / Mathf.Max(0.01f, area.soundDuration));
@@ -349,9 +318,6 @@ public abstract class MazeAgentBase : Agent
 
     // ───────────────────────────── 수동 조작 (Heuristic) ─────────────────────────────
 
-    /// <summary>
-    /// Update 라이프사이클에서 매 프레임 키보드 상호작용 입력을 폴링하여 래치합니다.
-    /// </summary>
     private void Update()
     {
         if (!IsManualControlActive)
@@ -363,55 +329,22 @@ public abstract class MazeAgentBase : Agent
         var kb = Keyboard.current;
         if (kb == null) return;
 
-        if (UseWasd) PollManualKeys(kb, WasdInteractKeys);
-        if (UseArrows) PollManualKeys(kb, ArrowInteractKeys);
-    }
-
-    /// <summary>
-    /// 지정된 상호작용 키 배열 중 이번 프레임에 눌린 키가 있으면 래치에 토글 액션을 등록합니다.
-    /// </summary>
-    /// <param name="kb">키보드 인스턴스</param>
-    /// <param name="interactKeys">모니터링할 키 목록</param>
-    private void PollManualKeys(Keyboard kb, Key[] interactKeys)
-    {
-        if (AnyKey(kb, interactKeys, tapOnly: true))
+        if ((useWasd && AnyKeyPressedThisFrame(kb, WasdInteractKeys))
+            || (useArrows && AnyKeyPressedThisFrame(kb, ArrowInteractKeys)))
         {
             latchedTapAction = BoxActionToggleGrab;
         }
     }
 
-    /// <summary>
-    /// 보관 중이던 수동 상호작용 키 입력을 반환하고 래치를 초기화합니다.
-    /// </summary>
-    /// <returns>소비된 액션 ID</returns>
-    private int ConsumeManualBoxAction()
-    {
-        int action = latchedTapAction;
-        latchedTapAction = BoxActionNone;
-        return action;
-    }
-
-    /// <summary>
-    /// 지정된 키 목록 중 하나라도 눌렸는지 검사하는 유틸리티 메서드입니다.
-    /// </summary>
-    /// <param name="kb">키보드 인스턴스</param>
-    /// <param name="keys">키 목록</param>
-    /// <param name="tapOnly">true이면 이번 프레임 첫 입력(wasPressedThisFrame), false면 누르고 있는지(isPressed)</param>
-    /// <returns>키 입력 여부</returns>
-    private static bool AnyKey(Keyboard kb, Key[] keys, bool tapOnly)
+    private static bool AnyKeyPressedThisFrame(Keyboard kb, Key[] keys)
     {
         for (int i = 0; i < keys.Length; i++)
         {
-            KeyControl control = kb[keys[i]];
-            if (tapOnly ? control.wasPressedThisFrame : control.isPressed) return true;
+            if (kb[keys[i]].wasPressedThisFrame) return true;
         }
         return false;
     }
 
-    /// <summary>
-    /// 휴리스틱(수동 조작) 모드 실행 시 키보드 입력값을 ML-Agents 액션 버퍼로 전달합니다.
-    /// </summary>
-    /// <param name="actionsOut">출력 액션 버퍼 (ContinuousActions, DiscreteActions)</param>
     public override void Heuristic(in ActionBuffers actionsOut)
     {
         Vector2 move = ReadKeyboardMovement();
@@ -420,13 +353,10 @@ public abstract class MazeAgentBase : Agent
         continuous[1] = move.y;
 
         var discrete = actionsOut.DiscreteActions;
-        discrete[0] = ConsumeManualBoxAction();
+        discrete[0] = latchedTapAction;
+        latchedTapAction = BoxActionNone;
     }
 
-    /// <summary>
-    /// 활성화된 수동 키보드 레이아웃(WASD 또는 방향키)으로부터 2D 이동 벡터(X, Z)를 읽어옵니다.
-    /// </summary>
-    /// <returns>정규화된 이동 벡터 (X, Y)</returns>
     private Vector2 ReadKeyboardMovement()
     {
         var kb = Keyboard.current;
@@ -435,13 +365,13 @@ public abstract class MazeAgentBase : Agent
         float x = 0f;
         float z = 0f;
 
-        if (UseWasd)
+        if (useWasd)
         {
             x += Axis(kb.dKey, kb.aKey);
             z += Axis(kb.wKey, kb.sKey);
         }
 
-        if (UseArrows)
+        if (useArrows)
         {
             x += Axis(kb.rightArrowKey, kb.leftArrowKey);
             z += Axis(kb.upArrowKey, kb.downArrowKey);
@@ -450,12 +380,6 @@ public abstract class MazeAgentBase : Agent
         return new Vector2(Mathf.Clamp(x, -1f, 1f), Mathf.Clamp(z, -1f, 1f));
     }
 
-    /// <summary>
-    /// 두 개의 대립되는 키(양수, 음수) 입력을 축(-1 ~ +1) 값으로 계산합니다.
-    /// </summary>
-    /// <param name="positive">양수 방향 키</param>
-    /// <param name="negative">음수 방향 키</param>
-    /// <returns>-1, 0, +1 값</returns>
     private static float Axis(KeyControl positive, KeyControl negative)
     {
         return (positive.isPressed ? 1f : 0f) - (negative.isPressed ? 1f : 0f);
