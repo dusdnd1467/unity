@@ -8,39 +8,20 @@ using UnityEngine;
 public class KeyItem : MonoBehaviour
 {
     private MazeArea area;
-    private Vector3 initialPosition;
-    private Quaternion initialRotation;
-    private bool initialPoseCaptured;
+    private InitialPose initialPose;
 
     /// <summary>
     /// 소속 MazeArea 참조를 주입받고 초기 스폰 위치/회전 상태를 기록합니다.
     /// </summary>
-    /// <param name="mazeArea">열쇠가 속한 MazeArea 인스턴스</param>
     public void Initialize(MazeArea mazeArea)
     {
         area = mazeArea;
-        EnsureInitialPose();
+        initialPose.CaptureOnce(transform);
     }
 
-    /// <summary>
-    /// 씬 로드 시 초기 배치 좌표를 기록합니다.
-    /// </summary>
     private void Awake()
     {
-        EnsureInitialPose();
-    }
-
-    /// <summary>
-    /// 에피소드 리셋 시 되돌아갈 시작 위치 및 회전값을 캐싱합니다. (런타임에 최초 1회 확정)
-    /// </summary>
-    private void EnsureInitialPose()
-    {
-        if (!initialPoseCaptured)
-        {
-            initialPosition = transform.position;
-            initialRotation = transform.rotation;
-            if (Application.isPlaying) initialPoseCaptured = true;
-        }
+        initialPose.CaptureOnce(transform);
     }
 
     /// <summary>
@@ -48,15 +29,11 @@ public class KeyItem : MonoBehaviour
     /// </summary>
     public void ResetKey()
     {
-        EnsureInitialPose();
-        transform.SetPositionAndRotation(initialPosition, initialRotation);
+        initialPose.CaptureOnce(transform);
+        initialPose.Restore(transform);
         gameObject.SetActive(true);
     }
 
-    /// <summary>
-    /// 플레이어와의 접촉을 감지하여 열쇠 획득 절차를 실행합니다.
-    /// </summary>
-    /// <param name="other">접촉한 대상 콜라이더</param>
     private void OnTriggerEnter(Collider other)
     {
         if (!other.CompareTag("Player")) return;

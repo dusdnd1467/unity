@@ -10,31 +10,21 @@ using Unity.MLAgents.Sensors;
 /// </summary>
 public class PlayerAgent : MazeAgentBase
 {
-    /// <summary>벡터 관측 크기: 열쇠 소지(1) + 적 소리(4) + 상자 운반 여부(1) = 총 6차원</summary>
-    public const int VectorObservationSize = 6;
-
     /// <summary>열쇠 획득 시 1회 부여되는 즉발 보상</summary>
     private const float KeyReward = 0.5f;
-
-    [Header("수동 조작 (Heuristic)")]
-    [Tooltip("방향키(Arrow)로 수동 조작 여부 (기본: true)")]
-    public bool useArrows = true;
-
-    [Tooltip("WASD 키로 수동 조작 여부 (기본: false, 필요 시 켜서 단독 플레이 가능)")]
-    public bool useWasd = false;
 
     [Header("상태")]
     [Tooltip("현재 열쇠를 소지하고 있는지 여부")]
     public bool hasKey = false;
 
-    /// <summary>WASD 조작 활성화 여부</summary>
-    public override bool UseWasd => useWasd;
-
-    /// <summary>방향키 조작 활성화 여부</summary>
-    public override bool UseArrows => useArrows;
-
     /// <summary>에이전트가 발생시키는 소리의 종류 (Player)</summary>
     protected override SoundSource MySoundSource => SoundSource.Player;
+
+    private void Reset()
+    {
+        useWasd = false;
+        useArrows = true;
+    }
 
     /// <summary>
     /// 에피소드 리셋 시 플레이어의 위치, 물리 속도 및 열쇠 소지 상태를 초기화합니다.
@@ -51,19 +41,11 @@ public class PlayerAgent : MazeAgentBase
     /// 2. 적이 낸 소리의 상대 위치 및 남은 시간 비율 (4차원)
     /// 3. 상자 운반 여부 (1차원)
     /// </summary>
-    /// <param name="sensor">관측 데이터를 기록할 벡터 센서</param>
     public override void CollectObservations(VectorSensor sensor)
     {
-        // 1. 열쇠 소지 여부 (1차원: 0 또는 1)
         sensor.AddObservation(hasKey ? 1.0f : 0.0f);
-
-        // 2. 적 소리 상대 위치(3차원) + 남은 시간 비율(1차원) (총 4차원)
         AddSoundObservation(sensor, SoundSource.Enemy);
-
-        // 3. 상자 운반 여부 (1차원: 0 또는 1)
         AddBoxCarryObservation(sensor);
-
-        // 참고: 문, 열쇠, 벽, 적 및 상자 상태(Box / LockedBox) 탐지는 머리에 장착된 3D RayPerceptionSensor로 수행됩니다.
     }
 
     /// <summary>

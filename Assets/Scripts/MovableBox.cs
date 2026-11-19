@@ -43,9 +43,6 @@ public class MovableBox : MonoBehaviour
     [Tooltip("상자가 잠긴 직후 잠금 해제를 시도할 수 있을 때까지의 쿨타임 (초)")]
     public float unlockCooldown = 1.0f;
 
-    [Tooltip("상자가 잠금 해제된 직후 다시 잠글 수 있을 때까지의 쿨타임 (초)")]
-    public float relockCooldown = 1.0f;
-
     [Header("시각 피드백 색상")]
     [Tooltip("미잠금 일반 상태 색상")]
     public Color unlockedColor = new Color(0.75f, 0.58f, 0.36f, 1f);
@@ -88,14 +85,11 @@ public class MovableBox : MonoBehaviour
     private Renderer[] visualRenderers;
     private MaterialPropertyBlock propBlock;
 
-    private Vector3 initialPosition;
-    private Quaternion initialRotation;
-    private bool initialPoseCaptured;
+    private InitialPose initialPose;
 
     private Vector3 grabOffset;
     private float unlockSoundTimer;
     private float unlockAvailableTime;
-    private float relockAvailableTime;
     private float lastVisualUnlockNormalized = -1f;
 
     /// <summary>
@@ -140,12 +134,7 @@ public class MovableBox : MonoBehaviour
         if (area == null) area = GetComponentInParent<MazeArea>();
 
         // 초기 위치는 런타임 시작 시 1회만 확정 기록
-        if (!initialPoseCaptured)
-        {
-            initialPosition = transform.position;
-            initialRotation = transform.rotation;
-            if (Application.isPlaying) initialPoseCaptured = true;
-        }
+        initialPose.CaptureOnce(transform);
 
         CacheRenderers();
         UpdateBoxTag();
@@ -196,7 +185,7 @@ public class MovableBox : MonoBehaviour
             else
             {
                 Vector3 desiredPos = currentCarrier.transform.position + grabOffset;
-                desiredPos.y = initialPosition.y;
+                desiredPos.y = initialPose.Position.y;
                 rb.MovePosition(desiredPos);
             }
         }
@@ -250,11 +239,8 @@ public class MovableBox : MonoBehaviour
         unlockerSource = SoundSource.None;
         unlockProgress = 0f;
         unlockAvailableTime = 0f;
-        relockAvailableTime = 0f;
 
-        rb.position = initialPosition;
-        rb.rotation = initialRotation;
-        transform.SetPositionAndRotation(initialPosition, initialRotation);
+        initialPose.Restore(transform, rb);
 
         UpdateBoxTag();
         UpdateVisualState();
@@ -352,39 +338,22 @@ public class MovableBox : MonoBehaviour
 
         if (autoLock && !isLocked)
         {
-            TryLock(carrier, GetActorSoundSource(carrier), skipDistanceCheck: true, skipCooldown: true);
+            LockBox(GetActorSoundSource(carrier));
         }
     }
 
-    /// <summary>
-    /// 상자를 고정(잠금) 상태로 전환합니다.
-    /// </summary>
-    /// <param name="actor">잠금을 시도하는 에이전트</param>
-    /// <param name="source">잠금을 실행한 에이전트의 소리 주체</param>
-    /// <param name="skipDistanceCheck">사거리 검사 생략 여부 (내려놓기 연계 시)</param>
-    /// <param name="skipCooldown">쿨타임 검사 생략 여부</param>
-    /// <returns>고정 성공 시 true</returns>
-    public bool TryLock(GameObject actor, SoundSource source, bool skipDistanceCheck = false, bool skipCooldown = false)
+    private void LockBox(SoundSource source)
     {
-        if (actor == null || isLocked) return false;
-        if (!skipDistanceCheck && !IsInRange(actor.transform.position)) return false;
-        if (!skipCooldown && Time.fixedTime < relockAvailableTime) return false;
+        if (isLocked) return;
 
-        if (currentCarrier != null)
-        {
-            StopGrab(null, autoLock: false);
-        }
         CancelChannelUnlock();
-
         isLocked = true;
         lockedBy = source;
         unlockAvailableTime = Time.fixedTime + unlockCooldown;
 
         EmitSoundIfPossible(source, "BoxLock");
-
         UpdateBoxTag();
         UpdateVisualState();
-        return true;
     }
 
     /// <summary>
@@ -424,7 +393,6 @@ public class MovableBox : MonoBehaviour
         unlockerSource = SoundSource.None;
         unlockProgress = 0f;
         currentUnlocker = null;
-        relockAvailableTime = Time.fixedTime + relockCooldown;
 
         EmitSoundIfPossible(finishedSource, "BoxUnlockComplete");
 

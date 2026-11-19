@@ -1907,7 +1907,7 @@ MonoBehaviour:
   agentParameters:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
-  MaxStep: 5000
+  MaxStep: 10000
   moveSpeed: 6
   playerInSightReward: 0.05
   useWasd: 1
@@ -6846,7 +6846,7 @@ MonoBehaviour:
   agentParameters:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
-  MaxStep: 5000
+  MaxStep: 10000
   moveSpeed: 6
   useArrows: 1
   useWasd: 0
