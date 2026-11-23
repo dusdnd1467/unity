@@ -50,8 +50,8 @@ public struct InitialPose
 /// </summary>
 public class MazeArea : MonoBehaviour
 {
-    /// <summary>플레이어 탈출 성공 시 플레이어에게 부여되는 승리 보상</summary>
-    private const float PlayerEscapeReward = 1.0f;
+    /// <summary>플레이어 탈출 성공 시 플레이어에게 부여되는 승리 보상 (열쇠 +0.5와 합쳐 총 +1.0)</summary>
+    private const float PlayerEscapeReward = 0.5f;
 
     /// <summary>플레이어 탈출 성공 시 적에게 부여되는 패배 페널티</summary>
     private const float EnemyEscapePenalty = -1.0f;
@@ -61,6 +61,12 @@ public class MazeArea : MonoBehaviour
 
     /// <summary>플레이어 체포 시 적에게 부여되는 승리 보상</summary>
     private const float EnemyCatchReward = 1.0f;
+
+    /// <summary>제한 시간 초과 시 플레이어에게 부여되는 타임아웃 페널티 (열쇠 +0.5 획득 상태였다면 총합 0)</summary>
+    private const float PlayerTimeoutPenalty = -0.5f;
+
+    /// <summary>제한 시간 초과 시 적에게 부여되는 타임아웃 보상</summary>
+    private const float EnemyTimeoutReward = 0.0f;
 
     private const string WallLayerName = "Wall";
     private static int? cachedWallLayerMask;
@@ -160,11 +166,16 @@ public class MazeArea : MonoBehaviour
     [Tooltip("발생한 소리가 에이전트에 의해 감지 가능한 지속 시간 (초)")]
     public float soundDuration = 3.0f;
 
+    [Header("에피소드 제한 시간 설정")]
+    [Tooltip("에피소드 최대 물리 스텝 수 (50Hz 기준 4500 = 90초, 0 이하이면 타임아웃 비활성화)")]
+    public int maxEpisodeSteps = 4500;
+
     // 플레이어 / 적 소리 이벤트 (상대방이 감지)
     private SoundEvent playerSound;
     private SoundEvent enemySound;
 
-    // 중복 에피소드 종료 방지용 프레임 카운터
+    // 에피소드 경과 스텝 및 중복 종료 방지용 프레임 카운터
+    private int episodeStepCount;
     private int fixedFrameCount;
     private int lastEpisodeEndFrame = -1;
     private bool suppressAreaReset;
@@ -187,6 +198,15 @@ public class MazeArea : MonoBehaviour
         fixedFrameCount++;
         playerSound.Tick(Time.fixedDeltaTime);
         enemySound.Tick(Time.fixedDeltaTime);
+
+        if (maxEpisodeSteps > 0)
+        {
+            episodeStepCount++;
+            if (episodeStepCount >= maxEpisodeSteps)
+            {
+                OnEpisodeTimeout();
+            }
+        }
     }
 
     /// <summary>
@@ -353,6 +373,7 @@ public class MazeArea : MonoBehaviour
     /// </summary>
     private void ResetAreaInternal()
     {
+        episodeStepCount = 0;
         playerSound.Clear();
         enemySound.Clear();
 
@@ -448,6 +469,11 @@ public class MazeArea : MonoBehaviour
     /// 적이 플레이어를 추적하여 잡았을 때 호출됩니다.
     /// </summary>
     public void EndEpisodeByCatch() => FinishEpisode(PlayerCaughtPenalty, EnemyCatchReward);
+
+    /// <summary>
+    /// 제한 스텝(maxEpisodeSteps)을 초과해 타임아웃으로 에피소드가 종료될 때 호출됩니다.
+    /// </summary>
+    private void OnEpisodeTimeout() => FinishEpisode(PlayerTimeoutPenalty, EnemyTimeoutReward);
 
     private void FinishEpisode(float playerReward, float enemyReward)
     {

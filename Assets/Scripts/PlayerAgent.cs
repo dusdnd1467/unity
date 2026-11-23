@@ -4,9 +4,10 @@ using Unity.MLAgents.Sensors;
 /// <summary>
 /// 미로 술래잡기 환경의 플레이어 에이전트 (강화학습):
 /// 1. 열쇠(KeyItem)를 탐색해 획득 (+0.5 보상)
-/// 2. 탈출문(EscapeDoor)을 찾아 탈출 (+1.0 보상)
-/// 3. 적(EnemyAgent)의 추적을 회피 (체포 시 -1.0 보상)
-/// 4. 상자(MovableBox)를 조작하여 적의 진로를 방해하거나 길을 확보
+/// 2. 탈출문(EscapeDoor)을 찾아 탈출 (+0.5 보상, 총 +1.0)
+/// 3. 제한 시간 초과 시 타임아웃 (-0.5 페널티, 열쇠 획득 상태였다면 총합 0)
+/// 4. 적(EnemyAgent)의 추적을 회피 (체포 시 -1.0 페널티)
+/// 5. 상자(MovableBox)를 조작하여 적의 진로를 방해하거나 길을 확보
 /// </summary>
 public class PlayerAgent : MazeAgentBase
 {
