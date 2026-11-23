@@ -1907,11 +1907,10 @@ MonoBehaviour:
   agentParameters:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
-  MaxStep: 10000
+  MaxStep: 0
   moveSpeed: 6
   useWasd: 1
   useArrows: 0
-  playerInSightReward: 0.05
 --- !u!114 &382926807
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6845,7 +6844,7 @@ MonoBehaviour:
   agentParameters:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
-  MaxStep: 10000
+  MaxStep: 0
   moveSpeed: 6
   useWasd: 0
   useArrows: 1
@@ -9718,6 +9717,7 @@ MonoBehaviour:
   - {fileID: 1963003262}
   - {fileID: 1949469525}
   soundDuration: 3
+  maxEpisodeSteps: 4500
 --- !u!1001 &1981465669
 PrefabInstance:
   m_ObjectHideFlags: 0

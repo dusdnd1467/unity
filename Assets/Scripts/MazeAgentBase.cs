@@ -17,9 +17,6 @@ public abstract class MazeAgentBase : Agent
     /// <summary>위치 관측값 정규화 계수 (월드 좌표 거리를 신경망 입력 범위인 약 [-1, 1]로 스케일링)</summary>
     protected const float ObservationPositionScale = 0.05f;
 
-    /// <summary>타임스텝 페널티 (에이전트가 목표 달성을 지연하지 않고 빠르게 행동하도록 유도)</summary>
-    protected const float DefaultTimeStepPenalty = -0.00005f;
-
     /// <summary>상자 상호작용 액션: 현재 상태 유지</summary>
     private const int BoxActionNone = 0;
 
@@ -79,14 +76,6 @@ public abstract class MazeAgentBase : Agent
 
     /// <summary>현재 에이전트가 키보드로 수동 제어 중인지 여부</summary>
     private bool IsManualControlActive => (UseWasd || UseArrows) && IsHeuristicMode;
-
-    // ───────────────────────────── 라이프사이클 / 콜백 ─────────────────────────────
-
-    /// <summary>
-    /// 에이전트별 특화 보상 성형(Reward Shaping)을 처리하기 위한 가상 메서드입니다.
-    /// OnActionReceived 단계에서 매 스텝마다 호출됩니다.
-    /// </summary>
-    protected virtual void ApplyRewardShaping() { }
 
     // ───────────────────────────── 초기화 / 리셋 ─────────────────────────────
 
@@ -159,15 +148,13 @@ public abstract class MazeAgentBase : Agent
     // ───────────────────────────── 액션 실행 파이프라인 ─────────────────────────────
 
     /// <summary>
-    /// 신경망 또는 Heuristic으로부터 전달된 액션 버퍼를 수신하여 이동, 상자 상호작용, 보상 성형을 실행합니다.
+    /// 신경망 또는 Heuristic으로부터 전달된 액션 버퍼를 수신하여 이동 및 상자 상호작용을 실행합니다.
     /// </summary>
     /// <param name="actions">수신된 액션 버퍼 (ContinuousActions, DiscreteActions)</param>
     public override void OnActionReceived(ActionBuffers actions)
     {
         ProcessBoxInteraction(actions);
         ApplyMovement(actions);
-        ApplyRewardShaping();
-        AddReward(DefaultTimeStepPenalty);
     }
 
     /// <summary>
