@@ -280,6 +280,17 @@ public class MovableBox : MonoBehaviour
     }
 
     /// <summary>
+    /// 주어진 시야 레이가 이 상자 콜라이더에 의해 가로막히는지 검사합니다.
+    /// </summary>
+    public bool BlocksLineOfSight(Ray ray, float distance)
+    {
+        return gameObject.activeInHierarchy
+            && boxCollider != null
+            && boxCollider.enabled
+            && boxCollider.Raycast(ray, out _, distance);
+    }
+
+    /// <summary>
     /// 에이전트가 상호작용 사거리(2.5m) 이내에 있고 벽에 가려지지 않았는지 검사합니다.
     /// </summary>
     /// <param name="actorPosition">에이전트 위치</param>

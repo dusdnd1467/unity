@@ -3,13 +3,16 @@ using Unity.MLAgents.Sensors;
 
 /// <summary>
 /// 미로 술래잡기 환경의 적(술래) 에이전트:
-/// 플레이어를 추적하여 잡는 것을 목표로 학습합니다. (체포 +1.0 / 타임아웃 0 / 탈출 허용 -1.0)
+/// 플레이어를 추적하여 잡는 것을 목표로 학습합니다. (체포 +1.0 / 타임아웃 -0.5 / 탈출 허용 -1.0)
 /// 소리를 감지하고 장애물(상자)을 해제하거나 이동하며 플레이어에게 접근합니다.
 /// </summary>
 public class EnemyAgent : MazeAgentBase
 {
     /// <summary>에이전트가 발생시키는 소리의 종류 (Enemy)</summary>
     protected override SoundSource MySoundSource => SoundSource.Enemy;
+
+    /// <summary>초반 술래 대기 시간(Prep Phase) 동안에는 이동 및 상자 조작 불가</summary>
+    protected override bool CanAct => area == null || !area.IsEnemyInPrepPhase;
 
     private void Reset()
     {

@@ -71,6 +71,9 @@ public abstract class MazeAgentBase : Agent
     /// <summary>파생 클래스에서 정의하는 고유 소리 주체 (Player / Enemy)</summary>
     protected abstract SoundSource MySoundSource { get; }
 
+    /// <summary>현재 에이전트가 이동 및 상자 상호작용을 수행할 수 있는지 여부</summary>
+    protected virtual bool CanAct => true;
+
     /// <summary>수동 조작(Heuristic) 모드 여부 확인</summary>
     protected bool IsHeuristicMode => behaviorParameters != null && behaviorParameters.IsInHeuristicMode();
 
@@ -153,6 +156,13 @@ public abstract class MazeAgentBase : Agent
     /// <param name="actions">수신된 액션 버퍼 (ContinuousActions, DiscreteActions)</param>
     public override void OnActionReceived(ActionBuffers actions)
     {
+        if (!CanAct)
+        {
+            StopMovement();
+            lastPolicyBoxAction = BoxActionNone;
+            return;
+        }
+
         ProcessBoxInteraction(actions);
         ApplyMovement(actions);
     }
@@ -173,6 +183,12 @@ public abstract class MazeAgentBase : Agent
         // 상자 잠금 해제 중에는 움직이지 못하도록 속도 0 적용
         float speed = IsChannelingBox() ? 0f : moveSpeed;
         rb.linearVelocity = new Vector3(moveInput.x * speed, rb.linearVelocity.y, moveInput.z * speed);
+    }
+
+    private void StopMovement()
+    {
+        if (rb == null || rb.isKinematic) return;
+        rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
     }
 
     /// <summary>
@@ -271,10 +287,30 @@ public abstract class MazeAgentBase : Agent
 
         Vector3 origin = transform.position + Vector3.up * 0.5f;
         Vector3 targetPos = target.position + Vector3.up * 0.5f;
-        if ((targetPos - origin).sqrMagnitude > maxDistance * maxDistance) return false;
+        Vector3 delta = targetPos - origin;
+        float sqrDist = delta.sqrMagnitude;
+        if (sqrDist > maxDistance * maxDistance) return false;
 
-        // Wall 레이어만 대상으로 Linecast 1회 수행 (버퍼 크기 제한 및 불필요한 콜라이더 순회 제거)
-        return !Physics.Linecast(origin, targetPos, MazeArea.WallLayerMask, QueryTriggerInteraction.Ignore);
+        // 1. Wall 레이어 차폐 검사
+        if (Physics.Linecast(origin, targetPos, MazeArea.WallLayerMask, QueryTriggerInteraction.Ignore))
+        {
+            return false;
+        }
+
+        // 2. 상자(MovableBox, Default 레이어) 차폐 검사
+        if (area != null && sqrDist > 0.0001f)
+        {
+            float dist = Mathf.Sqrt(sqrDist);
+            Ray ray = new Ray(origin, delta / dist);
+            var boxes = area.boxes;
+            for (int i = 0; i < boxes.Count; i++)
+            {
+                MovableBox box = boxes[i];
+                if (box != null && box.BlocksLineOfSight(ray, dist)) return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>

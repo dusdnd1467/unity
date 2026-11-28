@@ -65,8 +65,8 @@ public class MazeArea : MonoBehaviour
     /// <summary>제한 시간 초과 시 플레이어에게 부여되는 타임아웃 페널티 (열쇠 +0.5 획득 상태였다면 총합 0)</summary>
     private const float PlayerTimeoutPenalty = -0.5f;
 
-    /// <summary>제한 시간 초과 시 적에게 부여되는 타임아웃 보상</summary>
-    private const float EnemyTimeoutReward = 0.0f;
+    /// <summary>제한 시간 초과 시 적에게 부여되는 타임아웃 페널티</summary>
+    private const float EnemyTimeoutReward = -0.5f;
 
     private const string WallLayerName = "Wall";
     private static int? cachedWallLayerMask;
@@ -164,11 +164,14 @@ public class MazeArea : MonoBehaviour
 
     [Header("소리 전파 설정")]
     [Tooltip("발생한 소리가 에이전트에 의해 감지 가능한 지속 시간 (초)")]
-    public float soundDuration = 3.0f;
+    public float soundDuration = 7.0f;
 
     [Header("에피소드 제한 시간 설정")]
-    [Tooltip("에피소드 최대 물리 스텝 수 (50Hz 기준 4500 = 90초, 0 이하이면 타임아웃 비활성화)")]
-    public int maxEpisodeSteps = 4500;
+    [Tooltip("에피소드 최대 물리 스텝 수 (50Hz 기준 9000 = 180초, 0 이하이면 타임아웃 비활성화)")]
+    public int maxEpisodeSteps = 9000;
+
+    [Tooltip("에피소드 시작 후 적(술래)이 스폰 위치에서 대기하는 준비 시간 (초, 0 이하이면 비활성화)")]
+    public float enemyPrepDuration = 5.0f;
 
     // 플레이어 / 적 소리 이벤트 (상대방이 감지)
     private SoundEvent playerSound;
@@ -176,12 +179,16 @@ public class MazeArea : MonoBehaviour
 
     // 에피소드 경과 스텝 및 중복 종료 방지용 프레임 카운터
     private int episodeStepCount;
+    private float episodeElapsedTime;
     private int fixedFrameCount;
     private int lastEpisodeEndFrame = -1;
     private bool suppressAreaReset;
 
     private PlayerAgent ActivePlayer => player != null && player.isActiveAndEnabled ? player : null;
     private EnemyAgent ActiveEnemy => enemy != null && enemy.isActiveAndEnabled ? enemy : null;
+
+    /// <summary>에피소드 시작 직후 적(술래)의 초반 대기 시간(Prep Phase) 진행 여부</summary>
+    public bool IsEnemyInPrepPhase => enemyPrepDuration > 0f && episodeElapsedTime < enemyPrepDuration;
 
     private void Awake()
     {
@@ -196,6 +203,7 @@ public class MazeArea : MonoBehaviour
     private void FixedUpdate()
     {
         fixedFrameCount++;
+        episodeElapsedTime += Time.fixedDeltaTime;
         playerSound.Tick(Time.fixedDeltaTime);
         enemySound.Tick(Time.fixedDeltaTime);
 
@@ -374,6 +382,7 @@ public class MazeArea : MonoBehaviour
     private void ResetAreaInternal()
     {
         episodeStepCount = 0;
+        episodeElapsedTime = 0f;
         playerSound.Clear();
         enemySound.Clear();
 
